@@ -38,36 +38,77 @@ def MainMenu():
 # Since these shows will be added individually, for now this Main Menu will be hardcoded in.
 # would like to eventually pull this info from a database and even later have the option of entering info to add you own shows
   oc = ObjectContainer()
+  
+  show_url = 'http://www.lstudio.com/rss/lstudiorss-web-therapy.xml'
+  page = XML.ElementFromURL(show_url)
+  title = page.xpath("//channel/title//text()")[0]
+  description = page.xpath("//channel/description//text()")[0]
 
   oc.add(DirectoryObject(
-    key=Callback(ShowRSS, title='Web Therapy', url='http://www.lstudio.com/rss/lstudiorss-web-therapy.xml'),
-    title="Web Therapy", 
+    key=Callback(ShowRSS, title=title, url='http://www.lstudio.com/rss/lstudiorss-web-therapy.xml'),
+    title=title, 
+    summary=description,
     thumb='http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg'))
+
+  show_url = 'http://www.hulu.com/battleground'
+  page = HTML.ElementFromURL(show_url)
+  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+  description = page.xpath("//head//meta[@name='description']//@content")[0]
+  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 	
   oc.add(DirectoryObject(
-    key=Callback(ShowHulu, title="Battleground", url='battleground'), 
-    title="Battleground", 
-    thumb='http://ib2.huluim.com/show/8845?region=US&size=600x400'))
+    key=Callback(ShowHulu, title=title, url='battleground'), 
+    title=title, 
+    thumb=thumb,
+    summary=description))
+
+  show_url = 'http://screen.yahoo.com/burning-love/'
+  page = HTML.ElementFromURL(show_url)
+  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+  description = page.xpath("//head//meta[@name='description']//@content")[0]
+  thumb = 'http://l.yimg.com/bt/api/res/1.2/6A3u9oiAMdXRTR8fdMdrKQ--/YXBwaWQ9eW5ld3M7Zmk9ZmlsbDtoPTEyOTtweW9mZj0wO3E9ODU7dz0yMzA-/http://l.yimg.com/os/595/2012/05/02/burninglovelogo-jpg_144203.jpg'	
 	
   oc.add(DirectoryObject(
-    key=Callback(ShowYahoo, title="Burning Love", url='burning-love'), 
-    title="Burning Love", 
-    thumb='http://l.yimg.com/bt/api/res/1.2/6A3u9oiAMdXRTR8fdMdrKQ--/YXBwaWQ9eW5ld3M7Zmk9ZmlsbDtoPTEyOTtweW9mZj0wO3E9ODU7dz0yMzA-/http://l.yimg.com/os/595/2012/05/02/burninglovelogo-jpg_144203.jpg'))
+    key=Callback(ShowYahoo, title=title, url='burning-love'), 
+    title=title, 
+    thumb=thumb,
+    summary=description))
+
+  show_url = 'https://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G'
+  page = HTML.ElementFromURL(show_url)
+  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+  description = page.xpath("//head//meta[@name='description']//@content")[0]
+  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 
   oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title="Neil's Puppet Dreams", url='PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G'), 
-    title="Neil's Puppet Dreams", 
-    thumb='https://i3.ytimg.com/vi/zBh__ymaFQo/hqdefault.jpg'))
+    key=Callback(ShowPlaylist, title=title, url='PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G'), 
+    title=title, 
+    thumb=thumb,
+    summary=description))
+
+  show_url = 'https://www.youtube.com/playlist?list=PL4F5986B34F73F112'
+  page = HTML.ElementFromURL(show_url)
+  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+  description = page.xpath("//head//meta[@name='description']//@content")[0]
+  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 
   oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title="Chris Hardwick's All Star Celebrity Bowling", url='PL4F5986B34F73F112'), 
-    title="Chris Hardwick's All Star Celebrity Bowling", 
-    thumb='http://i2.ytimg.com/vi/5M-iiIpzEfU/hqdefault.jpg'))
+    key=Callback(ShowPlaylist, title=title, url='PL4F5986B34F73F112'), 
+    title=title, 
+    thumb=thumb,
+    summary=description))
+
+  show_url = 'https://www.youtube.com/playlist?list=PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB'
+  page = HTML.ElementFromURL(show_url)
+  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+  description = page.xpath("//head//meta[@name='description']//@content")[0]
+  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 
   oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title="Write Now! with Jimmy Pardo", url='PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB'), 
-    title="Write Now! with Jimmy Pardo", 
-    thumb='http://i2.ytimg.com/vi/am0dlMGN2nw/mqdefault.jpg'))
+    key=Callback(ShowPlaylist, title=title, url='PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB'), 
+    title=title, 
+    thumb=thumb,
+    summary=description))
 
   return oc
 ###################################################################################################
@@ -181,15 +222,22 @@ def ShowYahoo(title, url):
   url = YahooURL + '/' + url
   html = HTML.ElementFromURL(url)
   
-  for video in html.xpath('//div[@class="feature"]/div/div[@class="bd"]/div'):
+  for video in html.xpath('//div[@class="feature"]'):
 
-    ep_url = video.xpath('./h2//@href')[0]
+    ep_url = video.xpath('./a//@href')[0]
     ep_url = YahooURL + ep_url
     Log('the value of ep_url is%s'%ep_url)
     # There is a description for these videos
-    ep_description = video.xpath('./p//text()')[0]
-    ep_title = video.xpath('./h2//text()')[0]
-    # There is no image or duration for these videos, so not adding these fields
+    ep_description = video.xpath('./div/div[@class="bd"]/div/p//text()')[0]
+    ep_title = video.xpath('./div/div[@class="bd"]/div/h2//text()')[0]
+    # There is no duration for these videos, so not adding that fields
+    # below is to pull the thumb that actual url is hidden in a style code at //div[@class="yog-col yog-16u yom-primary"]/style
+    # This line below pulls the name associated with background image
+    # ep_thumb = video.xpath('./a/span/@id') [0]
+    # Log('the value of ep_thumb is%s'%ep_thumb)
+    # this line below would pull the data from around the url
+    # ep_thumb = ep_thumb.replace("background-image:url('", '').replace("');", '')
+    # Log('the value of ep_thumb is%s'%ep_thumb)
 	
     oc.add(VideoClipObject(
       url = ep_url, 
@@ -199,13 +247,15 @@ def ShowYahoo(title, url):
   
   for video in html.xpath('//div/ul/li/ul/li[@data-provider-id="video.burninglove.com"]/div[@class="item-wrap"]'):
 
-    ep_url = video.xpath('./div/p[@class="title"]/a//@href')[0]
+    ep_url = video.xpath('./a//@href')[0]
     ep_url = YahooURL + ep_url
     Log('the value of ep_url is%s'%ep_url)
     # There is no description for these videos, just the title and episode number, so not adding the description field
     ep_title = video.xpath('./div/p[@class="title"]/a//text()')[0]
     # There is no duration for these videos, so not adding the duration field
-    ep_thumb = video.xpath('./a[@class="img-wrap"]/img') [0].get('src')
+    ep_thumb = video.xpath('./a/img//@style') [0]
+    Log('the value of ep_thumb is%s'%ep_thumb)
+    ep_thumb = ep_thumb.replace("background-image:url('", '').replace("');", '')
     Log('the value of ep_thumb is%s'%ep_thumb)
 	
     oc.add(VideoClipObject(
