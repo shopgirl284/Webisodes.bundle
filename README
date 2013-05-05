@@ -1,1 +1,5 @@
 This is a Plex channel with some of my favorite webisodes on it.
+
+It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, or YouTube Playlist.
+
+It pulls shows from a JSON file. So you can add the necessary data for the show to the JSON file and it will produce that show.
