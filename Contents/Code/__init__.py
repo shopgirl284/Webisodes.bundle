@@ -4,6 +4,8 @@ TITLE    = 'Webisodes'
 PREFIX   = '/video/webisodes'
 ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
+RSS_ICON = 'rss-feed-icon.png'
+SHOW_DATA = 'data.json'
 
 YouTubePlaylistURL = 'http://www.youtube.com/playlist?list='
 YouTubePLFeedURL = 'https://gdata.youtube.com/feeds/api/playlists/'
@@ -13,6 +15,7 @@ channelURL3 = 'http://www.blip.tv'
 HuluURL = 'http://www.hulu.com'
 HuluEpURL = 'http://www.hulu.com/watch/'
 YahooURL = 'http://screen.yahoo.com'
+YahooOrigURL = 'http://screen.yahoo.com/yahoo-originals/'
 
 http = 'http:'
 
@@ -34,105 +37,56 @@ def Start():
   HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:18.0) Gecko/20100101 Firefox/18.0'
 
 ###################################################################################################
-
+# Since these shows will be added individually, for now this Main Menu will be hardcoded in.
+# would like to eventually pull this info from a database file and even later have the option of entering info to add you own shows
+# I wold need to add a step of verification to ensure the data was accurate
+# also I could see changing this to a format where it tries a couple different things to pull data for
+# populating front page for show
+# It would also require some more error testing
 @handler(PREFIX, TITLE, art=ART, thumb=ICON)
 
 def MainMenu():
-# Since these shows will be added individually, for now this Main Menu will be hardcoded in.
-# would like to eventually pull this info from a database file and even later have the option of entering info to add you own shows
+
   oc = ObjectContainer()
+  
+  json_data = Resource.Load(SHOW_DATA)
+  data = JSON.ObjectFromString(json_data)
+  for show in data["show_info"]:
+    url = show["url"]
+    show_url = url
+    show_id = show["id"]
+    show_thumb = show["thumb"]
+    show_type = show["type"]
 
-# For RSS feed shows, you need the address of the RSS feed and the http address of the thumb image for the show  
-  show_url = 'http://www.lstudio.com/rss/lstudiorss-web-therapy.xml'
-  page = XML.ElementFromURL(show_url)
-  title = page.xpath("//channel/title//text()")[0]
-  description = page.xpath("//channel/description//text()")[0]
+    if show_type == 'rss':
+      rss_page = XML.ElementFromURL(url)
+      show_url = rss_page.xpath("//channel/link//text()")[0]
+      title = rss_page.xpath("//channel/title//text()")[0]
+      description = rss_page.xpath("//channel/description//text()")[0]
+      page = HTML.ElementFromURL(show_url)
 
-  oc.add(DirectoryObject(
-    key=Callback(ShowRSS, title=title, url=show_url),
-    title=title, 
-    summary=description,
-    thumb='http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg'))
+    else:  
+      page = HTML.ElementFromURL(show_url)
+      title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+      description = page.xpath("//head//meta[@name='description']//@content")[0]
 
-# For Hulu shows, you need the address of the show and the show id (pulling the show id from the page will take a separate function)
-# could use YahooID type function to pull the id of the show
-  show_url = 'http://www.hulu.com/battleground'
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-	
-  oc.add(DirectoryObject(
-    key=Callback(ShowHulu, title=title, url=show_url, show_id='8845'), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
+    # cannot always get thumbs from rss and yahoo	  
+    if not show_thumb:
+      thumb = FindImage(rss_page, page, show_type, title)
+    else:
+      thumb = show_thumb
 
-  show_url = 'http://www.hulu.com/the-booth-at-the-end'
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-	
-  oc.add(DirectoryObject(
-    key=Callback(ShowHulu, title=title, url=show_url, show_id='6918'), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
-
-# For Yahoo shows, you need the address of the show and the http address of the thumb image for the show  
-  show_url = 'http://screen.yahoo.com/burning-love/'
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = 'http://l.yimg.com/bt/api/res/1.2/6A3u9oiAMdXRTR8fdMdrKQ--/YXBwaWQ9eW5ld3M7Zmk9ZmlsbDtoPTEyOTtweW9mZj0wO3E9ODU7dz0yMzA-/http://l.yimg.com/os/595/2012/05/02/burninglovelogo-jpg_144203.jpg'	
-	
-  oc.add(DirectoryObject(
-    key=Callback(ShowYahoo, title=title, url=show_url, thumb = 'http://l.yimg.com/bt/api/res/1.2/6A3u9oiAMdXRTR8fdMdrKQ--/YXBwaWQ9eW5ld3M7Zmk9ZmlsbDtoPTEyOTtweW9mZj0wO3E9ODU7dz0yMzA-/http://l.yimg.com/os/595/2012/05/02/burninglovelogo-jpg_144203.jpg'), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
-
-# For Youtube shows, you need the playlist number for the show  
-# Alternatively, we could make it to where you use your Youtube login to just return all of your playlists
-  PlaylistID = 'PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G'
-  show_url = YouTubePlaylistURL + PlaylistID
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-
-  oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title=title, url=PlaylistID), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
-
-  PlaylistID = 'PL4F5986B34F73F112'
-  show_url = YouTubePlaylistURL + PlaylistID
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-
-  oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title=title, url=PlaylistID), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
-
-  PlaylistID = 'PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB'
-  show_url = YouTubePlaylistURL + PlaylistID
-  page = HTML.ElementFromURL(show_url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0]
-  thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-
-  oc.add(DirectoryObject(
-    key=Callback(ShowPlaylist, title=title, url=PlaylistID), 
-    title=title, 
-    thumb=thumb,
-    summary=description))
+	# Based on the type, direct it to the proper function
+    if show_type == 'hulu':
+      oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, summary=description, thumb=thumb))
+    elif show_type == 'yahoo':
+      oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, summary=description, thumb=thumb))
+    elif show_type == 'youtube':
+      oc.add(DirectoryObject(key=Callback(ShowPlaylist, title=title, url=url), title=title, summary=description, thumb=thumb))
+    elif show_type == 'rss':
+      oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+    else:
+      oc.add(DirectoryObject(key=Callback(NoData), title='None', summary='None', thumb=ICON))
 
   return oc
 
@@ -173,10 +127,11 @@ def ShowRSS(title, url):
 
 ###################################################################################################
 @route(PREFIX + '/showhulu')
-def ShowHulu(title, url, show_id):
-# This is for shows that are on Hulu. May later make a function to pull show id automatically
+def ShowHulu(title, url):
+# This is for shows that are on Hulu. 
 # Unfortunately unable to play Webkit videos at this time so not able to play these
   oc = ObjectContainer(title2 = title)
+  show_id = HuluID(url)
   json_url = 'http://www.hulu.com/mozart/v1.h2o/shows/' + show_id +'/episodes?free_only=0&show_id=6918&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=Jk0-QLbtXxtSMOV4TUnwSXqhhDM%3DaoY_yiNlac0ed1d501bee91624b25159a0c57b05d5f34fa3dc981da5c5e9169daf661ffb043b2805717849b7bdeb8e01baccc43f'
 
   ep_data = JSON.ObjectFromURL(json_url)
@@ -210,6 +165,24 @@ def ShowHulu(title, url, show_id):
   return oc
 
 ###############################################################################################################
+# This function pulls the show ID from each show page for it to be entered into the JSON data url for Hulu
+# The best place to pull it is in the show's URL from a javascript in the head of type text/javascript that
+# contains the line "Hulu.Mobile.currentShowId = 6918;"
+def HuluID(url):
+
+  ID = ''
+  html = HTML.ElementFromURL(url)
+  for script in html.xpath('//head/script//text()'):
+    text = script
+    match = re.search("Hulu.Mobile.currentShowId .+", text)
+    if match:
+      ID = match.group(0)
+      ID = ID.replace('Hulu.Mobile.currentShowId = ', '').replace(';', '')
+      break
+      
+  return ID
+
+###############################################################################################################
 # This is a special funcion for handling Yahoo Shows so it can have extra videos
 @route(PREFIX + '/burninglove')
 def ShowYahoo(title, url, thumb):
@@ -229,18 +202,31 @@ def ShowYahoo(title, url, thumb):
   return oc
 
 ###############################################################################################################
-# This function pulls the Content ID from each show page for it to be entered into the JSON data url
+# This function pulls the Content ID from each show page for it to be entered into the JSON data url for Yahoo
+# The best place to find the show ID is to use the CONTENT_ID in a script in the head with language='javascript', 
+# but I have found one show that the Contenet ID did not produce data in the JSON url, that show had a listID found
+# in the body in a script with language='javascript' so we have to check and see if there is a listID before we 
+# pull the CONTENT_ID to make sure we can pull JSON data for the show
 def YahooID(url):
 
   ID = ''
   html = HTML.ElementFromURL(url)
-  for script in html.xpath('//head/script[@language="javascript"]'):
+  for script in html.xpath('//body/script[@language="javascript"]'):
     text = script.xpath('.//text()')[0]
-    match = re.search("CONTENT_ID .+", text)
+    match = re.search("(listId.*) pagesConfig: (\.*)", text)
     if match:
       ID = match.group(0)
-      ID = ID.replace('CONTENT_ID = "', '').replace('";', '')
+      ID = ID.replace('listId: "', '').replace('", pagesConfig: ', '')
       break
+	# the text contains listId
+    else:
+      for script in html.xpath('//head/script[@language="javascript"]'):
+        text = script.xpath('.//text()')[0]
+        match = re.search("CONTENT_ID .+", text)
+        if match:
+          ID = match.group(0)
+          ID = ID.replace('CONTENT_ID = "', '').replace('";', '')
+          break
       
   return ID
 
@@ -280,22 +266,24 @@ def VideoYahoo(title, url):
       # This section is for type link right now just one show uses the Yahoo Animal Allstars and the URL service is not picking up its videos
       else:
         # The url in the link_url field does not work with the service so we are pulling the url out of summary_short
-        description = video['summary_short']
-        desc_data = HTML.ElementFromString(description)
-        summary = desc_data.xpath('//text()')[0]
-        url = desc_data.xpath('//a//@href')[0]
-        if url:
-          title = video['title_short'] 
-          thumb = video['image_thumb_url']
-          if not url.startswith('http://'):
-            url = YahooURL + url
+        if video['type'] == 'link':
+          description = video['summary_short']
+          desc_data = HTML.ElementFromString(description)
+          summary = desc_data.xpath('//text()')[0]
+          url = desc_data.xpath('//a//@href')[0]
+          if url:
+            title = video['title_short'] 
+            thumb = video['image_thumb_url']
+            if not url.startswith('http://'):
+              url = YahooURL + url
 
-          oc.add(VideoClipObject(
-            url = url, 
-            title = title,
-            summary = summary,
-            thumb = thumb)) 
-	
+            oc.add(VideoClipObject(
+              url = url, 
+              title = title,
+              summary = summary,
+              thumb = thumb)) 
+        else:
+          break
   except:
     if len(oc) < 1:
       Log ('still no value for objects')
@@ -334,7 +322,8 @@ def ShowPlaylist(title, url):
 
   oc = ObjectContainer()
   # show_url is for the alternative HTML method in the comments below
-  show_url = YouTubePlaylistURL + url
+  show_url = url
+  url = url.replace('http://www.youtube.com/playlist?list=', '')
   json_url = YouTubePLFeedURL + url + '?v=2&alt=json&start-index=1&max-results=50'
 
 ####################################################################################################################
@@ -442,6 +431,7 @@ def ShowPlaylist(title, url):
 #####################################################################################################################
 
 #####################################################################################################################
+# This is a side function for YouTube Playlist
 def CheckRejectedEntry(entry):
 
   try:
@@ -460,6 +450,12 @@ def CheckRejectedEntry(entry):
     pass
 
   return False
+  
+##########################################################################################################################
+def NoData():
+
+  return ObjectContainer(header="Empty", message="This show is not an accepted type. Unable to display data or videos for this show.")      
+
 
 ########################################################################################################################
 #This just tests to make sure there is a valid image in the thumb address, if not, you get the defaul icon
@@ -469,3 +465,29 @@ def Thumb(url):
     return DataObject(data, 'image/jpeg')
   except:
     return Redirect(R(ICON))
+
+##########################################################################################################################
+# Could make it one function that just finds the image
+def FindImage(rss_page, page, show_type, title):
+  if show_type== 'rss':
+    try:
+      thumb = rss_page.xpath("//channel/image/url//text()")[0]
+    except:
+      try:
+        thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
+      except:
+        thumb = R(RSS_ICON)
+  elif show_type == 'yahoo':
+    try:
+      thumb_page = HTML.ElementFromURL(YahooOrigURL)
+      # you want the image with alt==title
+      thumb = thumb_page.xpath('//ul/li/ul/li/div/a/img[@alt="%s"]//@style' % title)[0]
+      thumb = thumb.replace("background-image:url('", '').replace("');", '')
+    except:
+      thumb = R(ICON)
+  else:
+    try:
+      thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
+    except:
+      thumb = R(ICON)
+  return thumb

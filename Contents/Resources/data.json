@@ -1,0 +1,59 @@
+
+{
+"ListID": "shows", "show_info":[
+{
+type: "rss",
+url: "http://www.lstudio.com/rss/lstudiorss-web-therapy.xml",
+id: "",
+thumb: "http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg"
+},
+{
+type: "rss",
+url: "http://www.mtv.com/overdrive/rss/news.jhtml",
+id: "",
+thumb: ""
+},
+{
+type: "rss",
+url: "http://www.cwtv.com/feed/video/xml",
+id: "",
+thumb: ""
+},
+{
+type: "hulu",
+url: "http://www.hulu.com/battleground",
+id: "",
+thumb: ""
+},
+{
+type: "hulu",
+url: "http://www.hulu.com/the-booth-at-the-end",
+id: "",
+thumb: ""
+},
+{
+type: "yahoo",
+url: "http://screen.yahoo.com/burning-love/",
+id: "",
+thumb: ""
+},
+{
+type: "youtube",
+url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G",
+id: "PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G",
+thumb: ""
+},
+{
+type: "youtube",
+url: "http://www.youtube.com/playlist?list=PL4F5986B34F73F112",
+id: "PL4F5986B34F73F112",
+thumb: ""
+},
+{
+type: "youtube",
+url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB",
+id: "PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB",
+thumb: ""
+}
+]
+}
