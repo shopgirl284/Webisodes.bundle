@@ -1,4 +1,3 @@
-import re
 
 TITLE    = 'Webisodes'
 PREFIX   = '/video/webisodes'
@@ -6,6 +5,10 @@ ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
 RSS_ICON = 'rss-feed-icon.png'
 SHOW_DATA = 'data.json'
+
+RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
+RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
+RE_HULU_ID = Regex('Hulu.Mobile.currentShowId = (.+?);')
 
 YouTubePlaylistURL = 'http://www.youtube.com/playlist?list='
 YouTubePLFeedURL = 'https://gdata.youtube.com/feeds/api/playlists/'
@@ -84,7 +87,7 @@ def SectionRSS(title):
           except:
             thumb = R(RSS_ICON)
 
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON))))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
     else:
@@ -115,7 +118,7 @@ def SectionHulu(title):
         else:
           thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 
-        oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, thumb=thumb, summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), summary=description))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
     else:
@@ -149,7 +152,7 @@ def SectionYahoo(title):
           thumb = thumb_page.xpath('//ul/li/ul/li/div/a/img[@alt="%s"]//@style' % title)[0]
           thumb = thumb.replace("background-image:url('", '').replace("');", '')
 	
-        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=thumb, summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), summary=description))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
 
@@ -181,7 +184,7 @@ def SectionPlaylist(title):
         else:
           thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
 
-        oc.add(DirectoryObject(key=Callback(ShowPlaylist, title=title, url=url), title=title, thumb=thumb, summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowPlaylist, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), summary=description))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
 
@@ -224,7 +227,7 @@ def ShowRSS(title, url):
       url = epUrl, 
       title = epTitle, 
       summary = epSummary, 
-      thumb = Function(Thumb, url=epThumb), 
+      thumb = Resource.ContentsOfURLWithFallback(epThumb, fallback=R(ICON)), 
       originally_available_at = epDate
       ))
 
@@ -262,7 +265,7 @@ def ShowHulu(title, url):
       url = ep_url, 
       title = title,
       season = season,
-      thumb = thumb,
+      thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
       summary = summary,
       # duration = duration,
       originally_available_at = date))
@@ -280,15 +283,8 @@ def ShowHulu(title, url):
 def HuluID(url):
 
   ID = ''
-  html = HTML.ElementFromURL(url)
-  for script in html.xpath('//head/script//text()'):
-    text = script
-    match = re.search("Hulu.Mobile.currentShowId .+", text)
-    if match:
-      ID = match.group(0)
-      ID = ID.replace('Hulu.Mobile.currentShowId = ', '').replace(';', '')
-      break
-      
+  content = HTTP.Request(url).content
+  ID = RE_HULU_ID.search(content).group(1)
   return ID
 
 ###############################################################################################################
@@ -319,24 +315,11 @@ def ShowYahoo(title, url, thumb):
 def YahooID(url):
 
   ID = ''
-  html = HTML.ElementFromURL(url)
-  for script in html.xpath('//body/script[@language="javascript"]'):
-    text = script.xpath('.//text()')[0]
-    match = re.search("(listId.*) pagesConfig: (\.*)", text)
-    if match:
-      ID = match.group(0)
-      ID = ID.replace('listId: "', '').replace('", pagesConfig: ', '')
-      break
-	# the text contains listId
-    else:
-      for script in html.xpath('//head/script[@language="javascript"]'):
-        text = script.xpath('.//text()')[0]
-        match = re.search("CONTENT_ID .+", text)
-        if match:
-          ID = match.group(0)
-          ID = ID.replace('CONTENT_ID = "', '').replace('";', '')
-          break
-      
+  content = HTTP.Request(url).content
+  try:
+    ID = RE_LIST_ID.search(content).group(1)
+  except:
+    ID = RE_CONTENT_ID.search(content).group(1)
   return ID
 
 ################################################################################################################
@@ -368,7 +351,7 @@ def VideoYahoo(title, url):
           oc.add(VideoClipObject(
             url = url, 
             title = title, 
-            thumb = thumb,
+            thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
             summary = summary,
             duration = duration,
             originally_available_at = date))
@@ -390,7 +373,7 @@ def VideoYahoo(title, url):
               url = url, 
               title = title,
               summary = summary,
-              thumb = thumb)) 
+              thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)))) 
         else:
           break
   except:
@@ -419,7 +402,7 @@ def MoreVideosYahoo(title, url):
     oc.add(VideoClipObject(
       url = url, 
       title = title, 
-      thumb = thumb))
+      thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON))))
       
   return oc
     
@@ -535,7 +518,7 @@ def ShowPlaylist(title, url):
 #      summary = ep_description,
 #      title = ep_title, 
 #      duration = ep_duration,
-#      thumb = Function(Thumb, url=ep_thumb),
+#      thumb = Resource.ContentsOfURLWithFallback(ep_thumb, fallback=R(ICON))
 #      ))
 #####################################################################################################################
 
@@ -565,15 +548,6 @@ def NoData():
 
   return ObjectContainer(header="Empty", message="This show is not an accepted type. Unable to display data or videos for this show.")      
 
-
-########################################################################################################################
-#This just tests to make sure there is a valid image in the thumb address, if not, you get the defaul icon
-def Thumb(url):
-  try:
-    data = HTTP.Request(url, cacheTime = CACHE_1MONTH).content
-    return DataObject(data, 'image/jpeg')
-  except:
-    return Redirect(R(ICON))
 
 #############################################################################################################################
 # This is a function to pull the thumb from a page

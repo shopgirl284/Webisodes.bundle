@@ -10,16 +10,6 @@
         <string>2</string>
 		<!-- The following are optional keys and those I have asked are not sure if there is any benefit to adding them -->		
 		<!-- Also, you should delete any unused or empty keys in your plist file -->		
-        <key>PlexAudioCodec</key>
-        <array>
-				<!-- possible string values are AAC and MP3 -->
-                <string></string>
-        </array>
-        <key>PlexMediaContainer</key>
-        <array>
-				<!-- possible string values are MP4, MKV, MOV, and AVI -->
-                <string></string>
-        </array>
         <key>PlexVideoCodec</key>
         <array>
                 <string>H.264</string>
