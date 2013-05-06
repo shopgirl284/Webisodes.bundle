@@ -50,43 +50,147 @@ def MainMenu():
   oc = ObjectContainer()
   
   json_data = Resource.Load(SHOW_DATA)
-  data = JSON.ObjectFromString(json_data)
-  for show in data["show_info"]:
-    url = show["url"]
-    show_url = url
-    show_id = show["id"]
-    show_thumb = show["thumb"]
-    show_type = show["type"]
+  Dict["shows"] = JSON.ObjectFromString(json_data)
+  
+  oc.add(DirectoryObject(key=Callback(SectionHulu, title="Hulu Original Shows"), title="Hulu Original Shows", thumb=GetThumb(HuluURL)))
+	
+  oc.add(DirectoryObject(key=Callback(SectionYahoo, title="Yahoo Screen Original Shows"), title="Yahoo Screen Original Shows", thumb=GetThumb(YahooURL)))
+	
+  oc.add(DirectoryObject(key=Callback(SectionPlaylist, title="YouTube Playlist Shows"), title="YouTube Playlist Shows", thumb=GetThumb(YouTubeURL)))
 
-    if show_type == 'rss':
-      rss_page = XML.ElementFromURL(url)
-      show_url = rss_page.xpath("//channel/link//text()")[0]
-      title = rss_page.xpath("//channel/title//text()")[0]
-      description = rss_page.xpath("//channel/description//text()")[0]
-      page = HTML.ElementFromURL(show_url)
+  oc.add(DirectoryObject(key=Callback(SectionRSS, title="RSS Feeds"), title="RSS Feeds", thumb=R(RSS_ICON)))
 
-    else:  
-      page = HTML.ElementFromURL(show_url)
-      title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-      description = page.xpath("//head//meta[@name='description']//@content")[0]
+  return oc
 
-    # cannot always get thumbs from rss and yahoo	  
-    if not show_thumb:
-      thumb = FindImage(rss_page, page, show_type, title)
+#########################################################################################################################
+# For RSS Feeds
+@route(PREFIX + '/sectionrss')
+def SectionRSS(title):
+  oc = ObjectContainer()
+  shows = Dict["shows"]
+  for show in shows:
+    if show['type'] == 'rss':
+      url = show["url"]
+      show_thumb = show["thumb"]
+      try:
+        rss_page = XML.ElementFromURL(url)
+        title = rss_page.xpath("//channel/title//text()")[0]
+        description = rss_page.xpath("//channel/description//text()")[0]
+        if show_thumb:
+          thumb = show_thumb
+        else:
+          try:
+            thumb = rss_path.xpath("//channel/image/url//text()")[0]
+          except:
+            thumb = R(RSS_ICON)
+
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+      except:
+        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
     else:
-      thumb = show_thumb
+      pass
 
-	# Based on the type, direct it to the proper function
-    if show_type == 'hulu':
-      oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, summary=description, thumb=thumb))
-    elif show_type == 'yahoo':
-      oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, summary=description, thumb=thumb))
-    elif show_type == 'youtube':
-      oc.add(DirectoryObject(key=Callback(ShowPlaylist, title=title, url=url), title=title, summary=description, thumb=thumb))
-    elif show_type == 'rss':
-      oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+  if len(oc) < 1:
+    Log ('still no value for objects')
+    return ObjectContainer(header="Empty", message="There are no RSS Feed shows to list right now.")
+
+  return oc
+  
+########################################################################################################################
+# For Hulu Shows
+@route(PREFIX + '/sectionhulu')
+def SectionHulu(title):
+  oc = ObjectContainer()
+  shows = Dict["shows"]
+  for show in shows:
+    if show['type'] == 'hulu':
+      url = show["url"]
+      show_thumb = show["thumb"]
+      try:
+        page = HTML.ElementFromURL(url)
+        title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+        description = page.xpath("//head//meta[@name='description']//@content")[0]
+        if show_thumb:
+          thumb = show_thumb
+        else:
+          thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
+
+        oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, thumb=thumb, summary=description))
+      except:
+        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
     else:
-      oc.add(DirectoryObject(key=Callback(NoData), title='None', summary='None', thumb=ICON))
+      pass
+
+  if len(oc) < 1:
+    Log ('still no value for objects')
+    return ObjectContainer(header="Empty", message="There are no Hulu shows to list right now.")
+
+  return oc
+
+#########################################################################################################################
+# For Yahoo Shows
+@route(PREFIX + '/sectionyahoo')
+def SectionYahoo(title):
+  oc = ObjectContainer()
+  shows = Dict["shows"]
+  for show in shows:
+    if show['type'] == 'yahoo':
+      url = show["url"]
+      show_thumb = show["thumb"]
+      try:
+        page = HTML.ElementFromURL(url)
+        title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+        description = page.xpath("//head//meta[@name='description']//@content")[0]
+        if show_thumb:
+          thumb = show_thumb
+        else:
+	  # We may want to put this in a try
+          thumb_page = HTML.ElementFromURL(YahooOrigURL)
+          thumb = thumb_page.xpath('//ul/li/ul/li/div/a/img[@alt="%s"]//@style' % title)[0]
+          thumb = thumb.replace("background-image:url('", '').replace("');", '')
+	
+        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=thumb, summary=description))
+      except:
+        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+
+    else:
+      pass
+
+  if len(oc) < 1:
+    Log ('still no value for objects')
+    return ObjectContainer(header="Empty", message="There are no Yahoo Screen shows to list right now.")      
+
+  return oc
+
+#########################################################################################################################
+# For Youtube Playlist
+@route(PREFIX + '/sectionplaylist')
+def SectionPlaylist(title):
+  oc = ObjectContainer()
+  shows = Dict["shows"]
+  for show in shows:
+    if show['type'] == 'youtube':
+      url = show['url']
+      show_thumb = show['thumb']
+      try:
+        page = HTML.ElementFromURL(url)
+        title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+        description = page.xpath("//head//meta[@name='description']//@content")[0]
+        if show_thumb:
+          thumb = show_thumb
+        else:
+          thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
+
+        oc.add(DirectoryObject(key=Callback(ShowPlaylist, title=title, url=url), title=title, thumb=thumb, summary=description))
+      except:
+        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+
+    else:
+      pass
+
+  if len(oc) < 1:
+    Log ('still no value for objects')
+    return ObjectContainer(header="Empty", message="There are no YouTube Playlist shows to list right now.")      
 
   return oc
 
@@ -94,6 +198,8 @@ def MainMenu():
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url):
 # This is for shows that have an RSS Feed.  Will have to look back to see if it will work with other RSS feeds
+# Need to add a error message for RSS feeds that do not have a Plex URL service.  Maybe a try pulling shows except give a message
+# saying the service may not be supported
 
   oc = ObjectContainer(title2=title)
   xml = RSS.FeedFromURL(url)
@@ -114,7 +220,6 @@ def ShowRSS(title, url):
       if el.tail: epSummary.append(el.tail)
 	
     epSummary = '. '.join(epSummary)
-	
     oc.add(VideoClipObject(
       url = epUrl, 
       title = epTitle, 
@@ -122,6 +227,10 @@ def ShowRSS(title, url):
       thumb = Function(Thumb, url=epThumb), 
       originally_available_at = epDate
       ))
+
+  if len(oc) < 1:
+    Log ('still no value for objects')
+    return ObjectContainer(header="Empty", message="Unable to display videos for this show right now.")      
 
   return oc
 
@@ -466,28 +575,37 @@ def Thumb(url):
   except:
     return Redirect(R(ICON))
 
-##########################################################################################################################
-# Could make it one function that just finds the image
-def FindImage(rss_page, page, show_type, title):
-  if show_type== 'rss':
-    try:
-      thumb = rss_page.xpath("//channel/image/url//text()")[0]
-    except:
-      try:
-        thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
-      except:
-        thumb = R(RSS_ICON)
-  elif show_type == 'yahoo':
-    try:
-      thumb_page = HTML.ElementFromURL(YahooOrigURL)
-      # you want the image with alt==title
-      thumb = thumb_page.xpath('//ul/li/ul/li/div/a/img[@alt="%s"]//@style' % title)[0]
-      thumb = thumb.replace("background-image:url('", '').replace("');", '')
-    except:
-      thumb = R(ICON)
-  else:
-    try:
-      thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]	
-    except:
-      thumb = R(ICON)
+#############################################################################################################################
+# This is a function to pull the thumb from a page
+def GetThumb(url):
+  page = HTML.ElementFromURL(url)
+  try:
+    thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
+    if not thumb.startswith('http://'):
+      thumb = http + thumb
+  except:
+    thumb = R(ICON)
   return thumb
+
+############################################################################################################################
+# this is to test if there is a URL service for this url
+#       if URLTest(url) == "true":
+def URLTest(url):
+  if URLService.ServiceIdentifierForURL(url) is not None:
+    url_good = 'true'
+  else:
+    url_good = 'false'
+  return url_good
+
+############################################################################################################################
+# this would allow reentry of a bad url
+# InputDirectoryObject(prompt=??,  title=??, )
+def URLError(url):
+  return ObjectContainer(header="Empty", message='Unable to display videos for this show. The show URL %s is entered incorrectly or incompatible with this channel' %url)
+
+############################################################################################################################
+# this would allow reentry of a bad url
+# InputDirectoryObject(prompt=??,  title=??, )
+def VideoError(url):
+  return ObjectContainer(header="Error", message="Unable to display this video. The video's URL %s is not compatible with Plex's URL Services." %url)
+
