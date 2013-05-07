@@ -6,11 +6,6 @@ thumb: "http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg"
 },
 {
 type: "rss",
-url: "http://www.mtv.com/overdrive/rss/news.jhtml",
-thumb: ""
-},
-{
-type: "rss",
 url: "http://www.cwtv.com/feed/video/xml",
 thumb: ""
 },

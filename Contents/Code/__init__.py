@@ -17,6 +17,8 @@ LstudioURL = 'http://www.lstudio.com'
 channelURL3 = 'http://www.blip.tv'
 HuluURL = 'http://www.hulu.com'
 HuluEpURL = 'http://www.hulu.com/watch/'
+HuluJSON1 = 'http://www.hulu.com/mozart/v1.h2o/shows/'
+HuluJSON2 = '&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=Jk0-QLbtXxtSMOV4TUnwSXqhhDM%3DaoY_yiNlac0ed1d501bee91624b25159a0c57b05d5f34fa3dc981da5c5e9169daf661ffb043b2805717849b7bdeb8e01baccc43f'
 YahooURL = 'http://screen.yahoo.com'
 YahooOrigURL = 'http://screen.yahoo.com/yahoo-originals/'
 
@@ -241,7 +243,7 @@ def ShowHulu(title, url):
 # Unfortunately unable to play Webkit videos at this time so not able to play these
   oc = ObjectContainer(title2 = title)
   show_id = HuluID(url)
-  json_url = 'http://www.hulu.com/mozart/v1.h2o/shows/' + show_id +'/episodes?free_only=0&show_id=6918&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=Jk0-QLbtXxtSMOV4TUnwSXqhhDM%3DaoY_yiNlac0ed1d501bee91624b25159a0c57b05d5f34fa3dc981da5c5e9169daf661ffb043b2805717849b7bdeb8e01baccc43f'
+  json_url = HuluJSON1 + show_id +'/episodes?free_only=0&show_id=' + show_id + HuluJSON2
 
   ep_data = JSON.ObjectFromURL(json_url)
   for video in ep_data['data']:
