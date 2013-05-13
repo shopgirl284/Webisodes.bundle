@@ -90,7 +90,13 @@ def SectionRSS(title):
       try:
         rss_page = XML.ElementFromURL(url)
         title = rss_page.xpath("//channel/title//text()")[0]
-        description = rss_page.xpath("//channel/description//text()")[0]
+        # sometimes the description is blank and it gives an error, so we added this as a try
+        # so this lack of description does not kick a RSS feed out and say it is uncompatible
+        # just because the description field was left blank
+        try:
+          description = rss_page.xpath("//channel/description//text()")[0]
+        except:
+          description = ' '
         if show_thumb:
           thumb = show_thumb
         else:
