@@ -76,6 +76,11 @@ def MainMenu():
 # For RSS Feeds
 @route(PREFIX + '/sectionrss')
 def SectionRSS(title):
+# If someone entered a YouTube RSS here in the type RSS feed, it would give errors.  We may want to add a check for YouTube
+# We could use the existing YouTube JSON and just want a false returned. Or even a simple starts with gdata 
+# would work. It may be better to wait till we have the ability to edit and add shows, just check for YouTube and 
+# then reconfigure the url entered and send it to the YouTube section instead
+
   oc = ObjectContainer()
   shows = Dict["shows"]
   for show in shows:
@@ -96,7 +101,7 @@ def SectionRSS(title):
 
         oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
       except:
-        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+        oc.add(DirectoryObject(key=Callback(URLError, url=url),title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or incompatible with this channel."))
     else:
       pass
 
@@ -118,7 +123,7 @@ def SectionYouTube(title):
       url = show['url']
       show_thumb = show['thumb']
       # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
-	  # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
+      # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
       json_url = YouTubeJSON(url)
       if json_url != 'false':
         try:
@@ -138,7 +143,7 @@ def SectionYouTube(title):
     return oc
 
 #############################################################################################################################
-# This is a function would automate the sections function for each of the shows that are the same or similar
+# This is a function that automates the sections function for each of the shows that are the same or similar
 def OtherSections(title, show_type):
   oc = ObjectContainer()
   shows = Dict["shows"]
@@ -175,12 +180,16 @@ def ShowRSS(title, url):
 # Would like to add a error message for RSS feeds that do not have a Plex URL service, but the function seems to
 # block some RSS feeds
 
-# Do we need to put this in a try except so it will not return errors
+# Since we do a try for RSS in the above RSS Section, that tells us if the RSS feed is correct.
+# Tested this with a separate channel for RSS only. YouTube kicked out as error in SectionRSS above.
+# Therefore, I do not think we need to put this function's data pull in a try/except
 
   oc = ObjectContainer(title2=title)
   xml = RSS.FeedFromURL(url)
 
   for item in xml.entries:
+  # we may want to add the option of finding the url elsewhere like enclosure(item.enclosure(@url))
+  # or guid but would still need a try except
     epUrl = item.link
     epTitle = item.title
     epDate = Datetime.ParseDate(item.date)
@@ -188,7 +197,10 @@ def ShowRSS(title, url):
     epDesc = item.description
     html = HTML.ElementFromString(epDesc)
     els = list(html)
-    epThumb = html.cssselect('img')[0].get('src')
+    try:
+      epThumb = html.cssselect('img')[0].get('src')
+    except:
+      epThumb = R(RSS_ICON)
 
     epSummary = []
 
@@ -196,13 +208,19 @@ def ShowRSS(title, url):
       if el.tail: epSummary.append(el.tail)
 	
     epSummary = '. '.join(epSummary)
-    oc.add(VideoClipObject(
-      url = epUrl, 
-      title = epTitle, 
-      summary = epSummary, 
-      thumb = Resource.ContentsOfURLWithFallback(epThumb, fallback=R(ICON)), 
-      originally_available_at = epDate
-      ))
+
+    test = URLTest(epUrl)
+    if test == 'true':
+      oc.add(VideoClipObject(
+        url = epUrl, 
+        title = epTitle, 
+        summary = epSummary, 
+        thumb = Resource.ContentsOfURLWithFallback(epThumb, fallback=R(ICON)), 
+        originally_available_at = epDate
+        ))
+    else:
+      Log('The url test failed and returned a value of %s' %test)
+      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No Service for URL", summary='There is not a Plex URL service for %s.' %title))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -212,7 +230,7 @@ def ShowRSS(title, url):
 
 ###################################################################################################
 # This is for shows that are on Hulu. 
-# Unfortunately unable to play Webkit videos at this time so not able to play these
+# Unfortunately Hulu Webkit only plays audio for me at this time, so not fully tested
 @route(PREFIX + '/showhulu')
 def ShowHulu(title, url):
   oc = ObjectContainer(title2 = title)
@@ -268,8 +286,8 @@ def HuluID(url):
 
 ###############################################################################################################
 # This function pulls the API_DONUT from each show page for it to be entered into the JSON data url for Hulu
-# got an error because they changed the access token for the JSON, so pulling that info from the page
-# the access token is the API_DONUT
+# Got an error because they changed the access token for the JSON, so pulling that data from the page now
+# the access token is the API_DONUT in the page
 def HuluToken(url):
 
   token = ''
@@ -278,9 +296,14 @@ def HuluToken(url):
   return token
 
 ###############################################################################################################
-# This function splits Yahoo Shows to show extra videos
-# Think this needs to be just for Burning Love since other shows do not have older videos
-@route(PREFIX + '/burninglove')
+# This function splits Yahoo Shows into two folders to pull the first carousel that is found in the JSON data file
+# through the VideoYahoo function and extra videos that is found through the MoreVideosYahoo function
+# Not sure if I should keep this function for all Yahoo Shows or just use it for Burning Love 
+# since other shows do not always have other videos for the second menu, it would come up as empty
+# for those shows. There is not an easy way to test this without sending it through a copy of the MoreVideosYahoo
+# function first and returning a length before choosing whether to process it here or to send directly to VideYahoo.
+
+@route(PREFIX + '/yahooshows')
 def ShowYahoo(title, url, thumb):
 # Create two folders, for current episodes and for other videos that we can pull from the MoreVideosYahoo function below
   oc = ObjectContainer(title2=title)
@@ -318,7 +341,6 @@ def VideoYahoo(title, url):
 
   oc = ObjectContainer(title2=title)
   JSON_url = YahooID(url)
-  # could clean this url up with global variables
   JSON_url = YahooJSON1 + JSON_url + YahooJSON2
   # JSON_url = 'http://screen.yahoo.com/_xhr/slate-data/?list_id=' + JSON_url + '&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u'
 
@@ -378,8 +400,8 @@ def VideoYahoo(title, url):
     return oc
 
 #####################################################################################################################
-# This function picks up the first page of results from the second carousel on a page
-# Using this function to pick up other videos available for Burning Love, no other shows have a second carousel
+# This function picks up the first page of results from the second carousel on a show page in Yahoo Screens
+# Using this function to pick up other videos available for Burning Love, only a couple other shows have a second carousel
 # so not sure if it works for other shows
 # Test if with Chow Ciao
 @route(PREFIX + '/morevideosyahoo')
@@ -387,7 +409,6 @@ def MoreVideosYahoo(title, url):
 
   oc = ObjectContainer(title2=title)
   html = HTML.ElementFromURL(url)
-  # Do we need some type of try here to prevent errors
 
   for video in html.xpath('//div[@id="mediabcarouselmixedlpca_2"]/div/div/ul/li/ul/li'):
     url = video.xpath('./div/a/@href')[0]
@@ -437,7 +458,7 @@ def YouTubeJSON(url):
 # Set up a separate function (YouTubeJSON) for putting together the JSON url 
 # The json_url used in this function is 'https://gdata.youtube.com/feeds/api/' + 'playlists/' OR 'users/' + ID +'?v=2&alt=json&start-index=1&max-results=50'
 
-# Need to change the function name to YouTubeFeed function 
+# A more appropriate name for this function is YouTubeFeed
 @route(PREFIX + '/showyoutube')
 def ShowYouTube(title, url):
 
@@ -546,10 +567,7 @@ def CheckRejectedEntry(entry):
   return False
 
 #####################################################################################################################
-# This function picks up the first page of results from the second carousel on a page
-# Using this function to pick up other videos available for Burning Love, no other shows have a second carousel
-# so not sure if it works for other shows
-# Test if with Chow Ciao
+# This pulls videos for shows hosted at BlipTV
 @route(PREFIX + '/showblip')
 def ShowBlip(title, url):
 
@@ -599,8 +617,7 @@ def ShowBlip(title, url):
     return oc
 
 #############################################################################################################################
-# This is a function to pulls the title and description from the head of a page
-# may just use sections function instead
+# This is a function to pulls the title and description from the head of a page and sends it to the function below for the thumb
 def GetShowInfo(url, show_thumb, show_type):
   page = HTML.ElementFromURL(url)
   title = page.xpath("//head//meta[@property='og:title']//@content")[0]
@@ -652,6 +669,7 @@ def GetYahooThumb(title):
 # Seems to return some RSS feeds as not having a service when they do, so currently unused and needs more testing
 #       if URLTest(url) == "true":
 def URLTest(url):
+  url_good = ''
   if URLService.ServiceIdentifierForURL(url) is not None:
     url_good = 'true'
   else:
@@ -663,5 +681,12 @@ def URLTest(url):
 # for the entire section if one of the URLs are incorrect
 # InputDirectoryObject(prompt=??,  title=??, )
 def URLError(url):
-  return ObjectContainer(header="Empty", message='Unable to display videos for this show. The show URL %s is entered incorrectly or incompatible with this channel' %url)
+  return ObjectContainer(header="Empty", message='Unable to display videos for this show. The show URL %s is entered incorrectly or is incompatible with this channel' %url)
+
+############################################################################################################################
+# This would possibly eventually allow for deletion of a url with now Plex service. Right Now it just keeps a section of show from giving an error
+# for the entire section if one of the URLs does not have a service
+# InputDirectoryObject(prompt=??,  title=??, )
+def URLNoService(title):
+  return ObjectContainer(header="Error", message='There is no Plex URL service for the %s. A Plex URL service is required for RSS feeds to work' %title)
 
