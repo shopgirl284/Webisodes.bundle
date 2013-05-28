@@ -1,77 +1,52 @@
 [
-{
-type: "rss",
-url: "http://www.lstudio.com/rss/lstudiorss-web-therapy.xml",
-thumb: "http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg"
-},
-{
-type: "rss",
-url: "http://vimeo.com/channels/highmaintenance/videos/rss",
-thumb: ""
-},
-{
-type: "rss",
-url: "http://www.cwtv.com/feed/video/xml",
-thumb: ""
-},
-{
-type: "hulu",
-url: "http://www.hulu.com/battleground",
-thumb: ""
-},
-{
-type: "blip",
-url: "http://blip.tv/bigcountryblues",
-thumb: ""
-},
-{
-type: "blip",
-url: "http://blip.tv/itgetsbetterish",
-thumb: ""
-},
-{
-type: "vimeo",
-url: "http://vimeo.com/fto7th",
-thumb: ""
-},
-{
-type: "hulu",
-url: "http://www.hulu.com/the-booth-at-the-end",
-thumb: ""
-},
-{
-type: "yahoo",
-url: "http://screen.yahoo.com/burning-love/",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/user/NewarkTimesWeddings",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/user/MyGimpyLife",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/user/gocheeksgo",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/playlist?list=PL4F5986B34F73F112",
-thumb: ""
-},
-{
-type: "youtube",
-url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dYIjdVhuqlEFa4eP0kM3TQB",
-thumb: ""
-}
+{1 : {type: "rss", url: "http://www.lstudio.com/rss/lstudiorss-web-therapy.xml", thumb: "http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg"}},
+{2 : {type: "rss", url: "http://www.cwtv.com/feed/video/xml", thumb: ""}},
+{3 : {type: "hulu", url: "http://www.hulu.com/battleground", thumb: ""}},
+{4 : {type: "hulu", url: "http://www.hulu.com/the-booth-at-the-end", thumb: ""}},
+{5 : {type: "blip", url: "http://blip.tv/bigcountryblues", thumb: ""}},
+{6 : {type: "blip", url: "http://blip.tv/itgetsbetterish", thumb: ""}},
+{7 : {type: "vimeo", url: "http://vimeo.com/fto7th", thumb: ""}},
+{8 : {type: "vimeo", url: "http://vimeo.com/channels/highmaintenance", thumb: ""}},
+{9 : {type: "yahoo", url: "http://screen.yahoo.com/failure-club/", thumb: ""}},
+{10 : {type: "yahoo", url: "http://screen.yahoo.com/burning-love/", thumb: ""}},
+{11 : {type: "youtube", url: "http://www.youtube.com/user/NewarkTimesWeddings", thumb: ""}},
+{12 : {type: "youtube", url: "http://www.youtube.com/user/MyGimpyLife", thumb: ""}},
+{13 : {type: "youtube", url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G", thumb: ""}},
+{14 : {type: "", url: "", thumb: ""}},
+{15 : {type: "", url: "", thumb: ""}},
+{16 : {type: "", url: "", thumb: ""}},
+{17 : {type: "", url: "", thumb: ""}},
+{18 : {type: "", url: "", thumb: ""}},
+{19 : {type: "", url: "", thumb: ""}},
+{20 : {type: "", url: "", thumb: ""}},
+{21 : {type: "", url: "", thumb: ""}},
+{22 : {type: "", url: "", thumb: ""}},
+{23 : {type: "", url: "", thumb: ""}},
+{24 : {type: "", url: "", thumb: ""}},
+{25 : {type: "", url: "", thumb: ""}},
+{26 : {type: "", url: "", thumb: ""}},
+{27 : {type: "", url: "", thumb: ""}},
+{28 : {type: "", url: "", thumb: ""}},
+{29 : {type: "", url: "", thumb: ""}},
+{30 : {type: "", url: "", thumb: ""}},
+{31 : {type: "", url: "", thumb: ""}},
+{32 : {type: "", url: "", thumb: ""}},
+{33 : {type: "", url: "", thumb: ""}},
+{34 : {type: "", url: "", thumb: ""}},
+{35 : {type: "", url: "", thumb: ""}},
+{36 : {type: "", url: "", thumb: ""}},
+{37 : {type: "", url: "", thumb: ""}},
+{38 : {type: "", url: "", thumb: ""}},
+{39 : {type: "", url: "", thumb: ""}},
+{40 : {type: "", url: "", thumb: ""}},
+{41 : {type: "", url: "", thumb: ""}},
+{42 : {type: "", url: "", thumb: ""}},
+{43 : {type: "", url: "", thumb: ""}},
+{44 : {type: "", url: "", thumb: ""}},
+{45 : {type: "", url: "", thumb: ""}},
+{46 : {type: "", url: "", thumb: ""}},
+{47 : {type: "", url: "", thumb: ""}},
+{48 : {type: "", url: "", thumb: ""}},
+{49 : {type: "", url: "", thumb: ""}},
+{50 : {type: "", url: "", thumb: ""}}
 ]
