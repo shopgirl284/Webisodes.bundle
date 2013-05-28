@@ -1,5 +1,7 @@
-This is a Plex channel with some of my favorite webisodes on it.
+This is a Plex channel that can pull your favorite webisodes on it.
 
-It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, or YouTube Playlist.
+It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
 
-It pulls shows from a JSON file. So you can add the necessary data for the show to the JSON file and it will produce that show.
+it requires special instructions to add shows if you are a Roku users and the specific structure of the shows URL. Please see the user entry instructions before using the channel.
+
+It pulls the original list of shows from a JSON file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 
