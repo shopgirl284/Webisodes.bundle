@@ -680,9 +680,12 @@ def ShowBlip(title, url):
       date = video.xpath('./span[@class="ReleaseDate"]//text()')[0]
       date = date.strip()
       date = Datetime.ParseDate(date)
-      duration = video.xpath('./span[@class="Runtime"]//text()')[0]
-      duration = duration.strip()
-      duration = Datetime.MillisecondsFromString(duration)
+      try:
+        duration = video.xpath('./span[@class="Runtime"]//text()')[0]
+        duration = duration.strip()
+        duration = Datetime.MillisecondsFromString(duration)
+      except:
+        duration = 0
 				
       oc.add(VideoClipObject(
         url = ep_url, 
