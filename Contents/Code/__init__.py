@@ -1,8 +1,3 @@
-# may want to add a delete all videos in each section option if we cannot find and answer to the roku
-# problem so you can delete a section with bad entries
-
-# Want to see if we can redirect back to sections after adding or deleting shows
-# Also can we send a url to a query so they can edit it?
 
 TITLE    = 'Webisodes'
 PREFIX   = '/video/webisodes'
@@ -43,6 +38,7 @@ YahooJSON2 = '&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u
 
 http = 'http:'
 COUNTER = 0
+MAXRESULTS = 50
 
 ###################################################################################################
 # Set up containers for all possible objects
@@ -88,7 +84,7 @@ def MainMenu():
 
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Vimeo Shows", show_type='vimeo'), title="Vimeo Shows", thumb=R(VIMEO_ICON)))
 
-  oc.add(DirectoryObject(key=Callback(SectionYouTube, title="YouTube Playlist Shows"), title="YouTube Playlist Shows", thumb=R(YOUTUBE_ICON)))
+  oc.add(DirectoryObject(key=Callback(SectionYouTube, title="YouTube Shows"), title="YouTube Playlist Shows", thumb=R(YOUTUBE_ICON)))
 
   oc.add(DirectoryObject(key=Callback(SectionRSS, title="RSS Feeds"), title="RSS Feeds", thumb=R(RSS_ICON)))
 
@@ -295,6 +291,8 @@ def ShowRSS(title, url, show_type):
       Log('The url test failed and returned a value of %s' %test)
       oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No Service for URL", summary='There is not a Plex URL service for %s.' %title))
 
+  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type=show_type, title=title), title="Delete This Show", summary="Click here to delete this show", thumb=R(ICON)))
 
   if len(oc) < 1:
@@ -328,7 +326,7 @@ def ShowHulu(title, url):
     season = video['video']['season_number']
     thumb = video['video']['thumbnail_url']
     duration = video['video']['duration']
-    # duration = int(duration) * 1000
+    duration = float(duration) * 1000
     date = video['video']['available_at']
     date = Datetime.ParseDate(date)
     summary = video['video']['description']
@@ -339,8 +337,11 @@ def ShowHulu(title, url):
       season = season,
       thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(HULU_ICON)),
       summary = summary,
-      # duration = duration,
+      index = int(episode),
+      duration = int(duration),
       originally_available_at = date))
+
+  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='hulu', title=title), title="Delete Hulu Show", summary="Click here to delete this Hulu Show", thumb=R(ICON)))
 
@@ -471,6 +472,9 @@ def VideoYahoo(title, url):
   except:
     return ObjectContainer(header="Error", message="Unable to access video information for this show.")
 
+  # They already put these in the right order, so adding a sort just messes up the order because sometimes three episodes are released on the same day
+  # oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+
   if len(oc) < 1:
     Log ('still no value for objects')
     return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
@@ -510,6 +514,9 @@ def MoreVideosYahoo(title, url):
 
   except:  
     return ObjectContainer(header="Empty", message="There are no addtional videos to display for this show right now.")
+
+  # This section does not have a release date, so you would have to sort by title, which will not always give your the best results
+  # oc.objects.sort(key = lambda obj: obj.title, reverse=True)
     
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -548,17 +555,18 @@ def YouTubeJSON(url):
 # Set up a separate function (YouTubeJSON) for putting together the JSON url 
 # The json_url used in this function is 'https://gdata.youtube.com/feeds/api/' + 'playlists/' OR 'users/' + ID +'?v=2&alt=json&start-index=1&max-results=50'
 @route(PREFIX + '/showyoutube')
-def ShowYouTube(title, url, json_url):
+def ShowYouTube(title, url, json_url, page = 1):
 
-  oc = ObjectContainer(title2=title)
+  oc = ObjectContainer(title2=title, replace_parent=(page > 1))
   # show_url is needed for the alternative HTML method in the comments below
 
 ####################################################################################################################
 # Just stole this below from Youtube's ParseFeed function and changed rawfeed to data, also added CheckRejectedEntry
 ####################################################################################################################
-  # tried to use Youtube construct for the appropriate URL with pages, but keep getting errors of unsupported operand type
-  # so had to delete option for more than 50 videos returned
-  local_url = json_url + '?v=2&alt=json&start-index=1&max-results=50'
+  local_url = json_url + '?v=2&alt=json'
+  page = int(page)
+  local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
+  local_url += '&max-results=' + str(MAXRESULTS)
 
   try:
     data = JSON.ObjectFromURL(local_url)
@@ -618,6 +626,20 @@ def ShowYouTube(title, url, json_url):
         originally_available_at = date,
         rating = rating
       ))
+
+    oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+
+    # Check to see if there are any futher results available.
+    if data['feed'].has_key('openSearch$totalResults'):
+      total_results = int(data['feed']['openSearch$totalResults']['$t'])
+      items_per_page = int(data['feed']['openSearch$itemsPerPage']['$t'])
+      start_index = int(data['feed']['openSearch$startIndex']['$t'])
+
+      if (start_index + items_per_page) < total_results:
+        oc.add(NextPageObject(
+          key = Callback(ShowYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
+          title = L("Next Page ...")
+        ))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="Delete YouTube Show", summary="Click here to delete this YouTube Show", thumb=R(ICON)))
 
@@ -694,6 +716,8 @@ def ShowBlip(title, url):
         originally_available_at = date,
         duration = duration,
         thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(BLIPTV_ICON))))
+
+  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='blip', title=title), title="Delete Blip TV Show", summary="Click here to delete this Blip TV Show", thumb=R(ICON)))
      
