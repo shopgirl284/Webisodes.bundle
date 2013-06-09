@@ -133,8 +133,9 @@ def SectionRSS(title):
     else:
       i+=1
 
+  oc.objects.sort(key = lambda obj: obj.title)
+
   oc.add(InputDirectoryObject(key=Callback(AddShow, show_type='rss'), title="Add A RSS Feed", summary="Click here to add a new RSS Feed", thumb=R(ICON), prompt="Enter the full URL (including http://) for the RSS Feed you would like to add"))
-  oc.add(DirectoryObject(key=Callback(MainMenu), title="Return to Main Menu", summary="Click here to return to the main menu", thumb=R(ICON)))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -169,8 +170,9 @@ def SectionYouTube(title):
     else:
       i+=1
 
+  oc.objects.sort(key = lambda obj: obj.title)
+
   oc.add(InputDirectoryObject(key=Callback(AddShow, show_type='youtube'), title="Add A YouTube Show", summary="Click here to add a new YouTube show", thumb=R(ICON), prompt="Enter the full URL (including http://) for the YouTube show you would like to add"))
-  oc.add(DirectoryObject(key=Callback(MainMenu), title="Return to Main Menu", summary="Click here to return to the main menu", thumb=R(ICON)))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -206,8 +208,9 @@ def OtherSections(title, show_type):
     else:
       i+=1
 
+  oc.objects.sort(key = lambda obj: obj.title)
+
   oc.add(InputDirectoryObject(key=Callback(AddShow, show_type=show_type), title="Add A New Show", summary="Click here to add a new Show", thumb=R(ICON), prompt="Enter the full URL (including http://) for the show you would like to add"))
-  oc.add(DirectoryObject(key=Callback(MainMenu), title="Return to Main Menu", summary="Click here to return to the main menu", thumb=R(ICON)))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -223,8 +226,7 @@ def SectionTools (title):
   oc = ObjectContainer(title2=title)
   oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", thumb=R(ICON), summary="Click here to see special instructions necessary for Roku Users to add shows to this channel"))
   oc.add(DirectoryObject(key=Callback(ResetShows, title="Reset Shows"), title="Reset Shows", thumb=R(ICON), summary="Click here to reset you show list back to the original default list the channel started with"))
-  oc.add(InputDirectoryObject(key=Callback(TestRedirect, title="Roku Dummy Search"), title="Roku Dummy Search", summary="A dummy search for Roku Remoku users to add urls to the recent search list", thumb=R(ICON), prompt="This allows for the addition of full url addresses in the Recent Searches of Roku"))
-  oc.add(DirectoryObject(key=Callback(MainMenu), title="Return to Main Menu", summary="Click here to return to the main menu", thumb=R(ICON)))
+  oc.add(InputDirectoryObject(key=Callback(DummySearch, title="Roku Dummy Search"), title="Roku Dummy Search", summary="A dummy search for Roku Remoku users to add urls to the recent search list", thumb=R(ICON), prompt="This allows for the addition of full url addresses in the Recent Searches of Roku"))
 
   return oc
 
@@ -233,18 +235,22 @@ def RokuUsers (title):
 # this is special instructions for Roku users
   return ObjectContainer(header="Special Instructions for Roku Users", message="To add a new show, Roku users must use the Remoku (www.remoku.tv) and the Dummy Search in System Settings to add URLs to the Recent Search List. Open the Dummy Search, paste the URL in the Remoku, and click the search button to save URLs to the Recent Search list. Then choose Add Show and choose the URL from the Recent Search list. WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD SHOWS SECTION. ONLY USE RECENT SEARCH LIST TO ADD SHOWS. OTHERWISE EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID SHOW ICON.")
 
+#############################################################################################################################
+# The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
+@route(PREFIX + '/resetshow')
+def ResetShows(title):
+  Dict["MyShows"] = LoadData()
+  return ObjectContainer(header="Reset", message='The shows have been set back to the default list of shows.')
+
 ########################################################################################################################
-def TestRedirect (title, query):
+def DummySearch (title, query):
 # this is just for testing to redirect after a query has been entered
-  ObjectContainer(header="Added", message="The show should now show up in the recent searches. Roku users can use this button to add as many URLs as you would like to use for the Add Shows button")
-  return SectionTools(title="Channel Tools")
+  return ObjectContainer(header="Added", message="The show should now show up in the recent searches. Roku users can use this button to add as many URLs as you would like to use for the Add Shows button")
 
 ########################################################################################################################
 # This is for shows that have an RSS Feed.  Seems to work with different RSS feeds
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url, show_type):
-# Would like to add a error message for RSS feeds that do not have a Plex URL service, but the function seems to
-# block some RSS feeds
 
 # Since we do a try for RSS in the above RSS Section, that tells us if the RSS feed is correct.
 # Tested this with a separate channel for RSS only. YouTube kicked out as error in SectionRSS above.
@@ -469,6 +475,7 @@ def VideoYahoo(title, url):
               thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(YAHOO_ICON)))) 
         else:
           break
+
   except:
     return ObjectContainer(header="Error", message="Unable to access video information for this show.")
 
@@ -509,6 +516,7 @@ def MoreVideosYahoo(title, url):
           url = url, 
           title = title, 
           thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(YAHOO_ICON))))
+
       else:  
         return ObjectContainer(header="Empty", message="There are no addtional videos to display for this show right now.")
 
@@ -554,7 +562,7 @@ def YouTubeJSON(url):
 # Currently this function will work with playlist or user upload feeds and produces results after the JSON url is constructed
 # Set up a separate function (YouTubeJSON) for putting together the JSON url 
 # The json_url used in this function is 'https://gdata.youtube.com/feeds/api/' + 'playlists/' OR 'users/' + ID +'?v=2&alt=json&start-index=1&max-results=50'
-@route(PREFIX + '/showyoutube')
+@route(PREFIX + '/showyoutube', page=int)
 def ShowYouTube(title, url, json_url, page = 1):
 
   oc = ObjectContainer(title2=title, replace_parent=(page > 1))
@@ -564,7 +572,6 @@ def ShowYouTube(title, url, json_url, page = 1):
 # Just stole this below from Youtube's ParseFeed function and changed rawfeed to data, also added CheckRejectedEntry
 ####################################################################################################################
   local_url = json_url + '?v=2&alt=json'
-  page = int(page)
   local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
   local_url += '&max-results=' + str(MAXRESULTS)
 
@@ -831,13 +838,6 @@ def URLNoService(title):
 def EditShow(url):
   return ObjectContainer(header="Error", message='Unable to edit show urls at this time')
 
-#############################################################################################################################
-# The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
-@route(PREFIX + '/resetshow')
-def ResetShows(title):
-  Dict["MyShows"] = LoadData()
-  return ObjectContainer(header="Reset", message='The shows have been set back to the default list of shows.')
-
 ############################################################################################################################
 # This is a function to delete a show from the json data file
 # cannot just delete the entry or it will mess up the numbering and cause errors in the program.
@@ -854,12 +854,7 @@ def DeleteShow(url, show_type, title):
     else:
       i += 1
   # Then send a message
-  if show_type=='rss':
-    return SectionRSS(title="RSS Feeds")
-  elif show_type=='youtube':
-    return SectionYouTube(title="YouTube Shows")
-  else:
-    return OtherSections(title="Shows", show_type=show_type)
+  return ObjectContainer(header=L('Deleted'), message=L('Your show has been deleted from the channel'))
 
 #############################################################################################################################
 # This is a function to add a show to the json data file.  Wanted to make a true add but running into errors based on 
@@ -868,8 +863,6 @@ def DeleteShow(url, show_type, title):
 @route(PREFIX + '/addshow')
 def AddShow(show_type, query, url=''):
 
-  Log('The value of url is %s' % url)
-  Log('The value of query is %s' % query)
   url = query
   # Checking to make sure http on the front
   if url.startswith('www'):
@@ -877,14 +870,12 @@ def AddShow(show_type, query, url=''):
   else:
     pass
   i=1
-  Log('The value of i at start of function is %s' %i)
 
   shows = Dict["MyShows"]
   for show in shows:
     if show[i]['url'] == "":
       show[i]['type'] = show_type
       show[i]['url'] = url
-      Log('The value of i in first if loop is %s' %i)
       break
     else:
       i += 1
@@ -893,12 +884,7 @@ def AddShow(show_type, query, url=''):
       else:
         pass
 
-  if show_type=='rss':
-    return SectionRSS(title="RSS Feeds")
-  elif show_type=='youtube':
-    return SectionYouTube(title="YouTube Shows")
-  else:
-    return OtherSections(title="Shows", show_type=show_type)
+  return ObjectContainer(header=L('Added'), message=L('Your show has been added to the channel'))
 
 #############################################################################################################################
 # This function loads the json data file
