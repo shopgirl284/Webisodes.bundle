@@ -16,7 +16,7 @@ NAME = 'Webisodes'
 
 RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
 RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
-RE_HULU_ID = Regex('Hulu.Mobile.currentShowId = (.+?);')
+RE_HULU_ID = Regex('var rawData = {"id": (.+?), "name":')
 RE_HULU_TOKEN = Regex("API_DONUT = '(.+?)';")
 
 YouTubePlaylistURL = 'http://www.youtube.com/playlist?list='
