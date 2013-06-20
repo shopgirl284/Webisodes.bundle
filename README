@@ -2,7 +2,7 @@ This is a Plex channel that can pull your favorite webisodes on it.
 
 It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
 
-It requires special instructions to add shows if you are a Roku users and the specific structure of the shows URL. Please see the notes below or the user entry instructions text file before using the channel.
+It requires a specific structure of the shows URL. Please see the notes below.
 
 NOTES AND INSTRUCTIONS FOR USING THIS CHANNEL
 
@@ -41,7 +41,7 @@ ROKU USERS MUST ACCESS THE CHANNEL WITH THE PLEX CHANNEL VERSION 2.6.5 (CURRENTL
 
 A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
 
-THE ROKU USER ENTRY ONLY RETURNS A SEARCH PAGE IN THE REGULAR PLEX CHANNEL, SO ROKU USERS NEED TO USE THE PLEX TEST CHANNEL VERSION 2.6.5. OTHERWISE, THE SEARCH ENTRY PAGE FOR ROKU WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER. 
+THE ROKU USER ENTRY ONLY RETURNS A SEARCH PAGE IN PLEX CHANNEL VERSION 2.6.4 OR LOWER, SO ROKU USERS NEED TO USE THE PLEX TEST CHANNEL VERSION 2.6.5. OTHERWISE, THE SEARCH ENTRY PAGE FOR ROKU WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER. 
 
 IMPORTANT NOTE FOR ADVANCED USERS:
 For those who may decide to edit the json data file attached to this channel to add shows there are a few things to keep in mind. It pulls the original list of shows from a JSON data file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 
