@@ -11,20 +11,13 @@ VIMEO_ICON = 'vimeo-icon.png'
 BLIPTV_ICON = 'bliptv-icon.png'
 
 SHOW_DATA = 'data.json'
-NAME = 'Webisodes'
 
 RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
 RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
 RE_HULU_ID = Regex('var rawData = {"id": (.+?), "name":')
 RE_HULU_TOKEN = Regex("API_DONUT = '(.+?)';")
 
-YouTubePlaylistURL = 'http://www.youtube.com/playlist?list='
 YouTubeFeedURL = 'https://gdata.youtube.com/feeds/api/'
-YouTubeURL = 'http://www.youtube.com'
-LstudioURL = 'http://www.lstudio.com'
-BlipTVURL = 'http://www.blip.tv'
-VimeoURL = 'http://www.vimeo.com'
-HuluURL = 'http://www.hulu.com'
 HuluEpURL = 'http://www.hulu.com/watch/'
 HuluJSON = 'http://www.hulu.com/mozart/v1.h2o/shows/%s/episodes?free_only=0&show_id=%s&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=%s'
 YahooURL = 'http://screen.yahoo.com'
@@ -34,7 +27,6 @@ YahooJSON = 'http://screen.yahoo.com/_xhr/slate-data/?list_id=%s&start=0&count=5
 # To add more returned results, add the last number plus 5 to pc_starts and ",1u-1u-1u-1u-1u" to pc_layouts for each five entries you want to add
 
 http = 'http:'
-COUNTER = 0
 MAXRESULTS = 50
 
 ###################################################################################################
@@ -95,7 +87,7 @@ def SectionRSS(title):
   for show in shows:
     if show[i]['type'] == 'rss':
       url = show[i]["url"]
-      show_thumb = show[i]["thumb"]
+      thumb = show[i]["thumb"]
       i+=1
       try:
         rss_page = XML.ElementFromURL(url)
@@ -105,11 +97,9 @@ def SectionRSS(title):
           description = rss_page.xpath("//channel/description//text()")[0]
         except:
           description = ' '
-        if show_thumb:
-          thumb = show_thumb
-        else:
+        if not thumb:
           try:
-            thumb = rss_path.xpath("//channel/image/url//text()")[0]
+            thumb = rss_page.xpath("//channel/image/url//text()")[0]
           except:
             thumb = R(RSS_ICON)
 
@@ -139,29 +129,40 @@ def OtherSections(title, show_type):
   for show in shows:
     if show[i]['type'] == show_type:
       url = show[i]["url"]
-      show_thumb = show[i]["thumb"]
+      thumb = show[i]["thumb"]
       i+=1
       try:
-        show_list = GetShowInfo(url, show_thumb, show_type)
-	# here we have an if based on type
-        if show_type == 'youtube':
-          # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
-          # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
-          json_url = YouTubeJSON(url)
-          if json_url != 'false':
-            oc.add(DirectoryObject(key=Callback(ShowYouTube, title=show_list[0], url=url, json_url=json_url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
-          else:
-            oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
-        elif show_type == 'hulu':
-          oc.add(DirectoryObject(key=Callback(ShowHulu, title=show_list[0], url=url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
-        elif show_type == 'yahoo':
-          oc.add(DirectoryObject(key=Callback(ShowYahoo, title=show_list[0], url=url, thumb=show_list[2]), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
-        elif show_type == 'blip':
-          oc.add(DirectoryObject(key=Callback(ShowBlip, title=show_list[0], url=url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
-        else:
-          oc.add(DirectoryObject(key=Callback(ShowRSS, title=show_list[0], url=url, show_type=show_type), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
+        page = HTML.ElementFromURL(url)
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type=show_type), title="Invalid URL", summary="The URL entered in the database was incorrect."))
+
+      title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+      description = page.xpath("//head//meta[@name='description']//@content")[0] 
+      if not thumb:
+        try:
+          thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
+          if not thumb.startswith('http'):
+            thumb = http + thumb
+        except:
+          pass
+      # here we have an if based on type
+      if show_type == 'youtube':
+        # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
+        # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
+        json_url = YouTubeJSON(url)
+        if json_url != 'false':
+          oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+        else:
+          oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+      elif show_type == 'hulu':
+        oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+      elif show_type == 'yahoo':
+        thumb = GetYahooThumb(title)
+        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+      elif show_type == 'blip':
+        oc.add(DirectoryObject(key=Callback(ShowBlip, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+      else:
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
     else:
       i+=1
 
@@ -213,38 +214,38 @@ def ShowRSS(title, url, show_type):
   xml = RSS.FeedFromURL(rss_url)
   for item in xml.entries:
     epUrl = item.link
-    epTitle = item.title
-    epDate = Datetime.ParseDate(item.date)
+    title = item.title
+    date = Datetime.ParseDate(item.date)
     # The description actually contains pubdate, link with thumb and description so we need to break it up
     epDesc = item.description
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
-      epThumb = html.cssselect('img')[0].get('src')
+      thumb = html.cssselect('img')[0].get('src')
     except:
-      epThumb = R(RSS_ICON)
+      thumb = R(RSS_ICON)
 
-    epSummary = []
+    summary = []
 
     for el in els:
-      if el.tail: epSummary.append(el.tail)
+      if el.tail: summary.append(el.tail)
 	
-    epSummary = '. '.join(epSummary)
+    summary = '. '.join(summary)
 
     test = URLTest(epUrl)
     if test == 'true':
       oc.add(VideoClipObject(
         url = epUrl, 
-        title = epTitle, 
-        summary = epSummary, 
-        thumb = Resource.ContentsOfURLWithFallback(epThumb, fallback=R(ICON)), 
-        originally_available_at = epDate
-        ))
+        title = title, 
+        summary = summary, 
+        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
+        originally_available_at = date
+      ))
+      oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+
     else:
       Log('The url test failed and returned a value of %s' %test)
-      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No Service for URL", summary='There is not a Plex URL service for %s.' %title))
-
-  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type=show_type, title=title), title="Delete This Show", summary="Click here to delete this show", thumb=R(ICON)))
 
@@ -655,47 +656,6 @@ def ShowBlip(title, url):
     return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
   else:
     return oc
-
-#############################################################################################################################
-# This is a function to pulls the title and description from the head of a page and sends it to the function below for the thumb
-@route(PREFIX + '/getshowinfo')
-def GetShowInfo(url, show_thumb, show_type):
-  page = HTML.ElementFromURL(url)
-  title = page.xpath("//head//meta[@property='og:title']//@content")[0]
-  description = page.xpath("//head//meta[@name='description']//@content")[0] 
-  if show_thumb:
-    thumb = show_thumb
-  else:
-    if show_type == 'yahoo':
-      thumb = GetYahooThumb(title)
-    else:
-      thumb = GetThumb(url, show_type)
-
-  show_list = [title, description, thumb]
-
-  return show_list
-  
-#############################################################################################################################
-# This is a function to pull the thumb from the head of a page
-@route(PREFIX + '/getthumb')
-def GetThumb(url, show_type):
-  page = HTML.ElementFromURL(url)
-  try:
-    thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
-    if not thumb.startswith('http'):
-      thumb = http + thumb
-  except:
-    if show_type == 'youtube':
-      thumb = R(YOUTUBE_ICON)
-    elif show_type == 'vimeo':
-      thumb = R(VIMEO_ICON)
-    elif show_type == 'blip':
-      thumb = R(BLIPTV_ICON)
-    elif show_type == 'hulu':
-      thumb = R(HULU_ICON)
-    else:
-      thumb = R(RSS_ICON)
-  return thumb
 
 #############################################################################################################################
 # This is a function to pull the thumb from a the Yahoo Originals page and uses the show title to find the correct image
