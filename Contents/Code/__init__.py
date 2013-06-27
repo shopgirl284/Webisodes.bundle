@@ -1,4 +1,3 @@
-
 TITLE    = 'Webisodes'
 PREFIX   = '/video/webisodes'
 ART      = 'art-default.jpg'
@@ -27,14 +26,12 @@ BlipTVURL = 'http://www.blip.tv'
 VimeoURL = 'http://www.vimeo.com'
 HuluURL = 'http://www.hulu.com'
 HuluEpURL = 'http://www.hulu.com/watch/'
-HuluJSON1 = 'http://www.hulu.com/mozart/v1.h2o/shows/'
-HuluJSON2 = '&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token='
+HuluJSON = 'http://www.hulu.com/mozart/v1.h2o/shows/%s/episodes?free_only=0&show_id=%s&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=%s'
 YahooURL = 'http://screen.yahoo.com'
 YahooOrigURL = 'http://screen.yahoo.com/yahoo-originals/'
-YahooJSON1 = 'http://screen.yahoo.com/_xhr/slate-data/?list_id='
+YahooJSON = 'http://screen.yahoo.com/_xhr/slate-data/?list_id=%s&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u'
 # This is a global variable for the parameters of the Yahoo JSON data file. Currently it returns 32 items. 
 # To add more returned results, add the last number plus 5 to pc_starts and ",1u-1u-1u-1u-1u" to pc_layouts for each five entries you want to add
-YahooJSON2 = '&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u'
 
 http = 'http:'
 COUNTER = 0
@@ -54,12 +51,13 @@ def Start():
   VideoClipObject.thumb = R(ICON)
   VideoClipObject.art = R(ART)
 
+  #HTTP.CacheTime = CACHE_1DAY 
+
   #This Checks to see if there is a list of shows
   if Dict['MyShows'] == None:
-  # THE EXAMPLE I AM USING SAYS IF NONE THEN CREATE A DICTIONARY WITH ONE EMPTY ITEM IN IT LIKE:
-  # Dict['MyShows'] = {'Webisodes' : {'type': 'None', 'url': 'None'}}
-  # BUT I AM GOING TO PULL IN THE JSON DATA IN TO POPULATE THIS DICT AND THIS ALSO ALLOWS THEM TO GET BACK TO A DEFAULT LIST
-  # ALSO WAS UNABLE TO TRULY GET ADD TO WORK SO NEED THE 50 ENTRIES IN THE JSON DATA TO HOLD ADDITIONS
+  # HERE WE PULL IN THE JSON DATA IN TO POPULATE THIS DICT THE FIRST TIME THEY LOAD THE CHANNEL
+  # THIS ALSO ALLOWS USERS TO REVERT BACK TO A DEFAULT LIST IF THERE ARE ISSUES
+  # ALSO NEED THE 50 ENTRIES IN THE JSON DATA TO HOLD ADDITIONS SINCE FORMAT DOES NOT TRULY ALLOW ADDTION OF ENTRIES
     Dict["MyShows"] = LoadData()
 
   else:
@@ -77,17 +75,11 @@ def MainMenu():
   Dict["shows"] = JSON.ObjectFromString(json_data)
   
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Hulu Original Shows", show_type='hulu'), title="Hulu Original Shows", thumb=R(HULU_ICON)))
-	
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Yahoo Screen Original Shows", show_type='yahoo'), title="Yahoo Screen Original Shows", thumb=R(YAHOO_ICON)))
-	
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Blip TV Shows", show_type='blip'), title="Blip TV Shows", thumb=R(BLIPTV_ICON)))
-
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Vimeo Shows", show_type='vimeo'), title="Vimeo Shows", thumb=R(VIMEO_ICON)))
-
-  oc.add(DirectoryObject(key=Callback(SectionYouTube, title="YouTube Shows"), title="YouTube Playlist Shows", thumb=R(YOUTUBE_ICON)))
-
+  oc.add(DirectoryObject(key=Callback(OtherSections, title="YouTube Shows", show_type='youtube'), title="YouTube Shows", thumb=R(YOUTUBE_ICON)))
   oc.add(DirectoryObject(key=Callback(SectionRSS, title="RSS Feeds"), title="RSS Feeds", thumb=R(RSS_ICON)))
-
   oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", thumb=R(ICON), summary="Click here to for reset options, extras and special instructions"))
 
   return oc
@@ -96,10 +88,6 @@ def MainMenu():
 # For RSS Feeds
 @route(PREFIX + '/sectionrss')
 def SectionRSS(title):
-# If someone entered a YouTube RSS here in the type RSS feed, it would give errors.  We may want to add a check for YouTube
-# We could use the existing YouTube JSON and just want a false returned. Or even a simple starts with gdata 
-# would work. It may be better to wait till we have the ability to edit and add shows, just check for YouTube and 
-# then reconfigure the url entered and send it to the YouTube section instead
 
   oc = ObjectContainer(title2=title)
   i=1
@@ -113,8 +101,6 @@ def SectionRSS(title):
         rss_page = XML.ElementFromURL(url)
         title = rss_page.xpath("//channel/title//text()")[0]
         # sometimes the description is blank and it gives an error, so we added this as a try
-        # so this lack of description does not kick a RSS feed out and say it is uncompatible
-        # just because the description field was left blank
         try:
           description = rss_page.xpath("//channel/description//text()")[0]
         except:
@@ -143,43 +129,6 @@ def SectionRSS(title):
   else:
     return oc
 
-#########################################################################################################################
-# For Youtube Playlist
-@route(PREFIX + '/sectionyoutube')
-def SectionYouTube(title):
-  oc = ObjectContainer(title2=title)
-  i=1
-  shows = Dict["MyShows"]
-  for show in shows:
-    if show[i]['type'] == 'youtube':
-      show_type = 'youtube'
-      url = show[i]['url']
-      show_thumb = show[i]['thumb']
-      i+=1
-      # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
-      # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
-      json_url = YouTubeJSON(url)
-      if json_url != 'false':
-        try:
-          show_list = GetShowInfo(url, show_thumb, show_type)
-          oc.add(DirectoryObject(key=Callback(ShowYouTube, title=show_list[0], url=url, json_url=json_url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
-        except:
-          oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
-      else:
-        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
-    else:
-      i+=1
-
-  oc.objects.sort(key = lambda obj: obj.title)
-
-  oc.add(InputDirectoryObject(key=Callback(AddShow, show_type='youtube'), title="Add A YouTube Show", summary="Click here to add a new YouTube show", thumb=R(ICON), prompt="Enter the full URL (including http://) for the YouTube show you would like to add"))
-
-  if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no YouTube Playlist shows to list right now.")      
-  else:
-    return oc
-
 #############################################################################################################################
 # This is a function that automates the sections function for each of the shows that are the same or similar
 @route(PREFIX + '/othersections')
@@ -194,8 +143,16 @@ def OtherSections(title, show_type):
       i+=1
       try:
         show_list = GetShowInfo(url, show_thumb, show_type)
-	# here we would just have an if based on type
-        if show_type == 'hulu':
+	# here we have an if based on type
+        if show_type == 'youtube':
+          # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
+          # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
+          json_url = YouTubeJSON(url)
+          if json_url != 'false':
+            oc.add(DirectoryObject(key=Callback(ShowYouTube, title=show_list[0], url=url, json_url=json_url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
+          else:
+            oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+        elif show_type == 'hulu':
           oc.add(DirectoryObject(key=Callback(ShowHulu, title=show_list[0], url=url), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
         elif show_type == 'yahoo':
           oc.add(DirectoryObject(key=Callback(ShowYahoo, title=show_list[0], url=url, thumb=show_list[2]), title=show_list[0], thumb=Resource.ContentsOfURLWithFallback(show_list[2]), summary=show_list[1]))
@@ -226,14 +183,13 @@ def SectionTools (title):
   oc = ObjectContainer(title2=title)
   oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", thumb=R(ICON), summary="Click here to see special instructions necessary for Roku Users to add shows to this channel"))
   oc.add(DirectoryObject(key=Callback(ResetShows, title="Reset Shows"), title="Reset Shows", thumb=R(ICON), summary="Click here to reset you show list back to the original default list the channel started with"))
-  oc.add(InputDirectoryObject(key=Callback(DummySearch, title="Roku Dummy Search"), title="Roku Dummy Search", summary="A dummy search for Roku Remoku users to add urls to the recent search list", thumb=R(ICON), prompt="This allows for the addition of full url addresses in the Recent Searches of Roku"))
 
   return oc
 
 ########################################################################################################################
 def RokuUsers (title):
 # this is special instructions for Roku users
-  return ObjectContainer(header="Special Instructions for Roku Users", message="To add a new show, Roku users must use the Remoku (www.remoku.tv) and the Dummy Search in System Settings to add URLs to the Recent Search List. Open the Dummy Search, paste the URL in the Remoku, and click the search button to save URLs to the Recent Search list. Then choose Add Show and choose the URL from the Recent Search list. WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD SHOWS SECTION. ONLY USE RECENT SEARCH LIST TO ADD SHOWS. OTHERWISE EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID SHOW ICON.")
+  return ObjectContainer(header="Special Instructions for Roku Users", message="To add a new show, Roku users must be using version 2.6.5 of the Plex Roku Channel (currently the PlexTest channel). Also, adding the URL for shows is made much easier with the Remoku (www.remoku.tv) WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD SHOWS SECTION USING ROKU PLEX CHANNELS 2.6.4. THAT VERSION USES A SEARCH INSTEAD OF ENTRY SCREEN AND EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID SHOW ICON.")
 
 #############################################################################################################################
 # The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
@@ -243,18 +199,11 @@ def ResetShows(title):
   return ObjectContainer(header="Reset", message='The shows have been set back to the default list of shows.')
 
 ########################################################################################################################
-def DummySearch (title, query):
-# this is just for testing to redirect after a query has been entered
-  return ObjectContainer(header="Added", message="The show should now show up in the recent searches. Roku users can use this button to add as many URLs as you would like to use for the Add Shows button")
-
-########################################################################################################################
 # This is for shows that have an RSS Feed.  Seems to work with different RSS feeds
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url, show_type):
 
-# Since we do a try for RSS in the above RSS Section, that tells us if the RSS feed is correct.
-# Tested this with a separate channel for RSS only. YouTube kicked out as error in SectionRSS above.
-# Therefore, I do not think we need to put this function's data pull in a try/except
+# The RSSSection try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
 
   oc = ObjectContainer(title2=title)
   if show_type == 'vimeo':
@@ -263,8 +212,6 @@ def ShowRSS(title, url, show_type):
     rss_url = url
   xml = RSS.FeedFromURL(rss_url)
   for item in xml.entries:
-  # we may want to add the option of finding the url elsewhere like enclosure(item.enclosure(@url))
-  # or guid but would still need a try except
     epUrl = item.link
     epTitle = item.title
     epDate = Datetime.ParseDate(item.date)
@@ -316,7 +263,7 @@ def ShowHulu(title, url):
   show_id = HuluID(url)
   # they changed the access_token for the JSON, so now just pulling it from page
   access_token = HuluToken(url)
-  json_url = HuluJSON1 + show_id +'/episodes?free_only=0&show_id=' + show_id + HuluJSON2 + access_token
+  json_url = HuluJSON %(show_id, show_id, access_token)
 
   try:
     ep_data = JSON.ObjectFromURL(json_url)
@@ -324,17 +271,14 @@ def ShowHulu(title, url):
     return ObjectContainer(header=L('Error'), message=L('Unable to access video data for shows'))
 
   for video in ep_data['data']:
-    ep_url = video['video']['id']
-    ep_url = HuluEpURL + str(ep_url)
+    ep_url = HuluEpURL + str(video['video']['id'])
     title = video['video']['title']
     episode =  video['video']['episode_number']
-    title = 'Episode ' + str(episode) + ', ' + title
     season = video['video']['season_number']
     thumb = video['video']['thumbnail_url']
     duration = video['video']['duration']
     duration = float(duration) * 1000
-    date = video['video']['available_at']
-    date = Datetime.ParseDate(date)
+    date = Datetime.ParseDate(video['video']['available_at'])
     summary = video['video']['description']
 
     oc.add(EpisodeObject(
@@ -369,9 +313,8 @@ def HuluID(url):
   return ID
 
 ###############################################################################################################
-# This function pulls the API_DONUT from each show page for it to be entered into the JSON data url for Hulu
-# Got an error because they changed the access token for the JSON, so pulling that data from the page now
-# the access token is the API_DONUT in the page
+# This function pulls the API_DONUT from each show page for it to be entered into the JSON data url for Hulu as the access token
+# This access token seems to change every day
 @route(PREFIX + '/hulutoken')
 def HuluToken(url):
   token = ''
@@ -380,12 +323,9 @@ def HuluToken(url):
   return token
 
 ###############################################################################################################
-# This function splits Yahoo Shows into two folders to pull the first carousel that is found in the JSON data file
-# through the VideoYahoo function and extra videos that is found through the MoreVideosYahoo function
-# Not sure if I should keep this function for all Yahoo Shows or just use it for Burning Love 
-# since other shows do not always have other videos for the second menu, it would come up as empty
-# for those shows. There is not an easy way to test this without sending it through a copy of the MoreVideosYahoo
-# function first and returning a length before choosing whether to process it here or to send directly to VideYahoo.
+# This function splits Yahoo Shows into two folders to pull the first 3 videos at top and any current episodes with the JSON data file
+# through the VideoYahoo function and extra videos that is found may be in the second carousel through the MoreVideosYahoo function
+# Not sure if I should keep both section for all Yahoo Shows or just use it for Burning Love 
 @route(PREFIX + '/yahooshows')
 def ShowYahoo(title, url, thumb):
 # Create two folders, for current episodes and for other videos that we can pull from the MoreVideosYahoo function below
@@ -407,8 +347,7 @@ def ShowYahoo(title, url, thumb):
 
 ###############################################################################################################
 # This function pulls the Content ID from each show page for it to be entered into the JSON data url
-# One show (Animal All Stars) does not work with its Content ID, but does work with a List ID that is
-# only available on that page, so we check for that List ID first.
+# One show (Animal All Stars) does use a List ID instead, so we check for that List ID first.
 @route(PREFIX + '/yahooid')
 def YahooID(url):
   ID = ''
@@ -421,63 +360,56 @@ def YahooID(url):
 
 ################################################################################################################
 # This function pulls the videos for Yahoo shows using JSON data file
+# It pulls the videos in the main box as well as any recent episodes
 @route(PREFIX + '/showyahoo')
 def VideoYahoo(title, url):
 
   oc = ObjectContainer(title2=title)
-  JSON_url = YahooID(url)
-  JSON_url = YahooJSON1 + JSON_url + YahooJSON2
-  # JSON_url = 'http://screen.yahoo.com/_xhr/slate-data/?list_id=' + JSON_url + '&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u'
-
+  JSON_ID = YahooID(url)
+  # could clean this url up with global variables
+  JSON_url = YahooJSON %JSON_ID
   try:
     data = JSON.ObjectFromURL(JSON_url)
+  except:
+    return ObjectContainer(header=L('Error'), message=L('This feed does not contain any video'))
+
+  if data.has_key('items'):
     for video in data['items']:
+      description = video['summary_short']
+      desc_data = HTML.ElementFromString(description)
+      summary = desc_data.xpath('//text()')[0]
+      title = video['title_short'] 
+      thumb = video['image_thumb_url']
       if video['type'] == 'video':
         url = video['link_url'] 
+        duration = Datetime.MillisecondsFromString(video['duration'])
+        date = Datetime.ParseDate(video['date'])
+		# some entries do not have urls
         if url:
-          description = video['summary_short']
-          desc_data = HTML.ElementFromString(description)
-          summary = desc_data.xpath('//text()')[0]
-          title = video['title_short'] 
-          thumb = video['image_thumb_url']
-          duration = video['duration']
-          duration = Datetime.MillisecondsFromString(duration)
-          date = video['date']
-          date = Datetime.ParseDate(date)
           if not url.startswith('http://'):
             url = YahooURL + url
 
           oc.add(VideoClipObject(
             url = url, 
             title = title, 
-            thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(YAHOO_ICON)),
+            thumb = Resource.ContentsOfURLWithFallback(thumb),
             summary = summary,
             duration = duration,
             originally_available_at = date))
-      # This section is for type link right now just one show uses the Yahoo Animal Allstars 
+	# This section is for show with type link in json data that have no dates or duration(just one Yahoo Animal Allstars)
       else:
-        # The url in the link_url field does not work with the service so we are pulling the url out of summary_short
-        if video['type'] == 'link':
-          description = video['summary_short']
-          desc_data = HTML.ElementFromString(description)
-          summary = desc_data.xpath('//text()')[0]
-          url = desc_data.xpath('//a//@href')[0]
-          if url:
-            title = video['title_short'] 
-            thumb = video['image_thumb_url']
-            if not url.startswith('http://'):
-              url = YahooURL + url
+        # The url in the link_url field does not work with URL service so pull url out of summary_short
+        url = desc_data.xpath('//a//@href')[0]
+		# some entries do not have urls
+        if url:
+          if not url.startswith('http://'):
+            url = YahooURL + url
 
-            oc.add(VideoClipObject(
-              url = url, 
-              title = title,
-              summary = summary,
-              thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(YAHOO_ICON)))) 
-        else:
-          break
-
-  except:
-    return ObjectContainer(header="Error", message="Unable to access video information for this show.")
+          oc.add(VideoClipObject(
+            url = url, 
+            title = title, 
+            summary = summary,
+            thumb = Resource.ContentsOfURLWithFallback(thumb))) 
 
   # They already put these in the right order, so adding a sort just messes up the order because sometimes three episodes are released on the same day
   # oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
@@ -489,12 +421,9 @@ def VideoYahoo(title, url):
     return oc
 
 #####################################################################################################################
-# This function picks up the first page of results from the second carousel on a show page in Yahoo Screens
-# Using this function to pick up other videos available for Burning Love, only a couple other shows have a second carousel
-# so not sure if it works for other shows
-# testing with failure club right now.
-# Need to add a try except message here for the shows that do not have a second area
-# Test if with Chow Ciao
+# This picks up videos in the second section on a show page with an id="mediabcarouselmixedlpca_2"
+# It only picks up older episodes available on the Yahoo Screens website for Burning Love right now
+# ARE THERE ANY BETTER METHOD FOR YAHOO SCREENS?
 @route(PREFIX + '/morevideosyahoo')
 def MoreVideosYahoo(title, url):
 
@@ -534,22 +463,21 @@ def MoreVideosYahoo(title, url):
     
 ###################################################################################################################
 # This is a function to produce the JSON url needed for the YouTubeFeed function
-# We can add other types of YouTube feed types here as we need
-# It returns to the SectionYahoo so it can also serve as added url validation
+# It returns to the OtherSectiona so it can also serve as added url validation
 @route(PREFIX + '/youtubejson')
 def YouTubeJSON(url):
 
   user = 'user'
   play = 'playlist'
   if url.find(play)  > -1:
-    playlist = url.replace('http://www.youtube.com/playlist?list=', '')
+    playlist = url.split('list=')[1]
     json_url = YouTubeFeedURL + 'playlists/' + playlist
   else:
     if url.find(user)  > -1:
-      # I have seen some user feed urls that may also have data after the user name 
-	  # Ex. http://www.youtube.com/user/NewarkTimesWeddings?feature=watch
-	  # could use if url.find('?') then username.split(?) and then username=username[0] to pull that out
-      user_name = url.replace('http://www.youtube.com/user/', '') 
+      if '?' in url: 
+        # Some may have a quesiton mark after the username Ex. http://www.youtube.com/user/NewarkTimesWeddings?feature=watch
+        url = url.split('?')[0]
+      user_name = url.split('/user/') [1]
       # need to change all letters to lowercase
       user_name = user_name.lower()
       json_url = YouTubeFeedURL + 'users/' + user_name + '/uploads'
@@ -560,8 +488,6 @@ def YouTubeJSON(url):
 
 ####################################################################################################################
 # Currently this function will work with playlist or user upload feeds and produces results after the JSON url is constructed
-# Set up a separate function (YouTubeJSON) for putting together the JSON url 
-# The json_url used in this function is 'https://gdata.youtube.com/feeds/api/' + 'playlists/' OR 'users/' + ID +'?v=2&alt=json&start-index=1&max-results=50'
 @route(PREFIX + '/showyoutube', page=int)
 def ShowYouTube(title, url, json_url, page = 1):
 
@@ -685,10 +611,8 @@ def ShowBlip(title, url):
   oc = ObjectContainer(title2=title)
   html = HTML.ElementFromURL(url)
   user_id = html.xpath('//div[@id="PageInfo"]//@data-users-id')[0]
-  # it only seems to get the first page even though there are other pages. 
-  # so we have to get the number of pages and make a loop to get all the pages
-  page_num = html.xpath('//div[@class="Pagination"]/span[@class="LastPage"]//text()')[0]
-  page_num = int(page_num)
+  # to get all pages we get the number of pages and make a loop to get all the pages
+  page_num = int(html.xpath('//div[@class="Pagination"]/span[@class="LastPage"]//text()')[0])
   data_url = 'http://blip.tv/pr/show_get_full_episode_list?users_id=' + user_id + '&lite=0&esi=1'
   page = HTML.ElementFromURL(data_url)
   count = 0
@@ -707,12 +631,10 @@ def ShowBlip(title, url):
       description = video.xpath('./span[@class="Description"]//text()')[0]
       description = description.strip()
       date = video.xpath('./span[@class="ReleaseDate"]//text()')[0]
-      date = date.strip()
-      date = Datetime.ParseDate(date)
+      date = Datetime.ParseDate(date.strip())
       try:
         duration = video.xpath('./span[@class="Runtime"]//text()')[0]
-        duration = duration.strip()
-        duration = Datetime.MillisecondsFromString(duration)
+        duration = Datetime.MillisecondsFromString(duration.strip())
       except:
         duration = 0
 				
@@ -760,7 +682,7 @@ def GetThumb(url, show_type):
   page = HTML.ElementFromURL(url)
   try:
     thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
-    if not thumb.startswith('http://'):
+    if not thumb.startswith('http'):
       thumb = http + thumb
   except:
     if show_type == 'youtube':
@@ -810,8 +732,6 @@ def URLTest(url):
 ############################################################################################################################
 # This would possibly eventually allow reentry of a bad url. Right Now it just keeps a section of show from giving an error
 # for the entire section if one of the URLs are incorrect
-# Need to create two object containers. One to delete the entry and one to edit the entry. We will start with a delete.
-# InputDirectoryObject(prompt=??,  title=??, )
 @route(PREFIX + '/urlerror')
 def URLError(url, show_type):
 
@@ -824,9 +744,7 @@ def URLError(url, show_type):
   return oc
 
 ############################################################################################################################
-# This would possibly eventually allow for deletion of a url with now Plex service. Right Now it just keeps a section of show from giving an error
-# for the entire section if one of the URLs does not have a service
-# InputDirectoryObject(prompt=??,  title=??, )
+# This keeps a section of show from giving an error for the entire section if one of the URLs does not have a service
 @route(PREFIX + '/urlnoservice')
 def URLNoService(title):
   return ObjectContainer(header="Error", message='There is no Plex URL service for the %s. A Plex URL service is required for RSS feeds to work. You can use the Delete Show button to remove this show' %title)
