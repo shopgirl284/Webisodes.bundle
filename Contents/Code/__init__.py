@@ -615,6 +615,7 @@ def ShowBlip(title, url):
   # to get all pages we get the number of pages and make a loop to get all the pages
   page_num = int(html.xpath('//div[@class="Pagination"]/span[@class="LastPage"]//text()')[0])
   data_url = 'http://blip.tv/pr/show_get_full_episode_list?users_id=' + user_id + '&lite=0&esi=1'
+  #why is this line below here?
   page = HTML.ElementFromURL(data_url)
   count = 0
 
