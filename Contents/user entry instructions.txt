@@ -2,7 +2,7 @@ This is a Plex channel that can pull your favorite webisodes on it.
 
 It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
 
-It requires use of Plex Channel V2.6.5 to add shows if you are a Roku users. Please see the notes below or the user entry instructions text file before using the channel.
+It requires use of Plex Channel V2.6.5 or higher to add shows if you are a Roku users. Please see the notes below or the user entry instructions text file before using the channel.
 
 NOTES AND INSTRUCTIONS FOR USING THIS CHANNEL
 
@@ -23,20 +23,17 @@ YAHOO SCREEN ORIGINAL SHOWS
 Example: http://screen.yahoo.com/failure-club/
 
 VIMEO
-Example: http://vimeo.com/channels/highmaintenance
+Example: http://vimeo.com/highmaintenance
 
 BLIPTV
 Example: http://blip.tv/bigcountryblues
-
-HULU ORIGINAL SHOWS
-Example: http://www.hulu.com/battleground
 
 RSS FEEDS
 Example: http://www.cwtv.com/feed/video/xml
 
 
 IMPORTANT INSTRUCTIONS FOR ROKU USERS:
-THE ROKU USERS MUST USE THE ROKU PLEX CHANNEL V2.65 (CURRENTLY THE PLEX TEST CHANNEL) TO HAVE ACCESS TO THE USER ENTRY SCREEN. VERSION 2.6.4 ONLY RETURNS A SEARCH PAGE, THAT DOES NOT ALLOW DIRECT USER ENTRY FOR ROKU USERS. ALSO, THE SEARCH ENTRY PAGE WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER.
+THE ROKU USERS MUST USE THE ROKU PLEX CHANNEL V2.65 (CURRENTLY REQUIRES USING THE PLEX TEST CHANNEL) TO HAVE ACCESS TO THE USER ENTRY SCREEN. VERSION 2.6.4 ONLY RETURNS A SEARCH PAGE, THAT DOES NOT ALLOW DIRECT USER ENTRY FOR ROKU USERS. ALSO, THE SEARCH ENTRY PAGE WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER.
 HAVING A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ CAN MAKE IT VERRY EASY TO PASTE THE URL ADDRESS TO YOUR ROKU MACHINE. INSTRUCTIONS AND MORE INFO ARE AVAILABLE AT http://forums.roku.com/viewtopic.php?f=28&t=46852.
 ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU.  
 
