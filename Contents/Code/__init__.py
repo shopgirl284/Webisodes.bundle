@@ -12,6 +12,7 @@ VIMEO_ICON = 'vimeo-icon.png'
 BLIPTV_ICON = 'bliptv-icon.png'
 
 SHOW_DATA = 'data.json'
+NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 
 RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
 RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
@@ -218,13 +219,19 @@ def ShowRSS(title, url, show_type):
     rss_url = url + '/videos/rss'
   else:
     rss_url = url
-  xml = RSS.FeedFromURL(rss_url)
-  for item in xml.entries:
-    epUrl = item.link
-    title = item.title
-    date = Datetime.ParseDate(item.date)
+  xml = XML.ElementFromURL(rss_url)
+  for item in xml.xpath('//item'):
+    epUrl = item.xpath('./link//text()')[0]
+    title = item.xpath('./title//text()')[0]
+    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
     # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.description
+    epDesc = item.xpath('./description//text()')[0]
+    try:
+      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
+      Log('the value of new_url is %s' %new_url)
+      epUrl = new_url
+    except:
+      pass
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
