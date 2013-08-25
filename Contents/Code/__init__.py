@@ -13,6 +13,7 @@ BLIPTV_ICON = 'bliptv-icon.png'
 
 SHOW_DATA = 'data.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
+NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
 
 RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
 RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
@@ -106,6 +107,7 @@ def SectionRSS(title):
             thumb = R(RSS_ICON)
 
         oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type='rss'), title=title, summary=description, thumb=thumb))
+
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='rss'), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or not in the proper format for use with this channel."))
     else:
@@ -228,16 +230,18 @@ def ShowRSS(title, url, show_type):
     epDesc = item.xpath('./description//text()')[0]
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
-      Log('the value of new_url is %s' %new_url)
       epUrl = new_url
     except:
       pass
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
-      thumb = html.cssselect('img')[0].get('src')
+      thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
     except:
-      thumb = R(RSS_ICON)
+      try:
+        thumb = html.cssselect('img')[0].get('src')
+      except:
+        thumb = R(RSS_ICON)
 
     summary = []
 
@@ -245,21 +249,28 @@ def ShowRSS(title, url, show_type):
       if el.tail: summary.append(el.tail)
 	
     summary = '. '.join(summary)
+    try:
+      media_url = item.xpath('./enclosure//@url')[0]
+    except:
+      media_url = ''
 
     test = URLTest(epUrl)
-    if test == 'true':
+    if test == 'true' and 'archive.org' not in url:
       oc.add(VideoClipObject(
         url = epUrl, 
         title = title, 
         summary = summary, 
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
+        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)), 
         originally_available_at = date
       ))
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
     else:
-      Log('The url test failed and returned a value of %s' %test)
-      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
+      if media_url:
+        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, thumb=thumb, url=media_url))
+      else:
+        Log('The url test failed and returned a value of %s' %test)
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Medie Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type=show_type, title=title), title="Delete This Show", summary="Click here to delete this show", thumb=R(ICON)))
 
@@ -271,6 +282,56 @@ def ShowRSS(title, url, show_type):
   else:
     return oc
 
+####################################################################################################
+# This function creates an object container for RSS feeds that have a media file in the feed
+# Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
+@route(PREFIX + '/createobject')
+def CreateObject(url, title, summary, originally_available_at, thumb, include_container=False):
+
+  if url.endswith('.mp3'):
+    container = 'mp3'
+    audio_codec = AudioCodec.MP3
+  elif  url.endswith('.m4a') or url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264'):
+    container = Container.MP4
+    audio_codec = AudioCodec.AAC
+  elif url.endswith('.flv') or url.endswith('Flash+Video'):
+    container = Container.FLV
+  elif url.endswith('.mkv'):
+    container = Container.MKV
+
+  if url.endswith('.mp3') or url.endswith('.m4a'):
+    object_type = TrackObject
+  elif url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264') or url.endswith('.flv') or url.endswith('Flash+Video') or url.endswith('.mkv'):
+    audio_codec = AudioCodec.AAC
+    object_type = VideoClipObject
+  else:
+    Log('entered last else the value of url is %s' %url)
+    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The video file %s is not a type currently supported by this channel' %url)
+    return new_object
+
+  new_object = object_type(
+    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
+    rating_key = url,
+    title = title,
+    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)),
+    summary = summary,
+    originally_available_at = originally_available_at,
+    items = [
+      MediaObject(
+        parts = [
+          PartObject(key=url)
+            ],
+            container = container,
+            audio_codec = audio_codec,
+            audio_channels = 2
+      )
+    ]
+  )
+
+  if include_container:
+    return ObjectContainer(objects=[new_object])
+  else:
+    return new_object
 ###################################################################################################
 # This is for shows that are on Hulu. 
 # Unfortunately Hulu Webkit only plays audio for me at this time, so not fully tested
