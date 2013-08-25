@@ -209,6 +209,8 @@ def ResetShows(title):
 
 ########################################################################################################################
 # This is for shows that have an RSS Feed.  Seems to work with different RSS feeds
+# TO ADD AUDIO SUPPORT FOR THOSE WITH URL SERVICES ADD A TRY/EXCEPT FOR 
+# rss_type = item.xpath('./media:content//@type', namespaces=NAMESPACES2)[0]
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url, show_type):
 
@@ -225,7 +227,7 @@ def ShowRSS(title, url, show_type):
   for item in xml.xpath('//item'):
     epUrl = item.xpath('./link//text()')[0]
     title = item.xpath('./title//text()')[0]
-    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
+    date = item.xpath('./pubDate//text()')[0]
     # The description actually contains pubdate, link with thumb and description so we need to break it up
     epDesc = item.xpath('./description//text()')[0]
     try:
@@ -261,7 +263,7 @@ def ShowRSS(title, url, show_type):
         title = title, 
         summary = summary, 
         thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)), 
-        originally_available_at = date
+        originally_available_at = Datetime.ParseDate(date)
       ))
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
@@ -315,7 +317,7 @@ def CreateObject(url, title, summary, originally_available_at, thumb, include_co
     title = title,
     thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)),
     summary = summary,
-    originally_available_at = originally_available_at,
+    originally_available_at = Datetime.ParseDate(originally_available_at),
     items = [
       MediaObject(
         parts = [
