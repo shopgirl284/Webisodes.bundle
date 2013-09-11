@@ -1,6 +1,6 @@
 This is a Plex channel that can pull your favorite webisodes on it.
 
-It can pull shows with available Plex URL services that are RSS feeds, from Hulu, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
+It can pull shows with available Plex URL services that are RSS feeds, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
 
 It requires a specific structure of the shows URL. Please see the notes below.
 
@@ -8,9 +8,7 @@ NOTES AND INSTRUCTIONS FOR USING THIS CHANNEL
 
 With this channel you can add shows from all the sources listed.  I have also added a "Channel Tools" section with some additional tools that can be useful including resetting the shows to the default in case you have any problems, instructions for Roku users. 
 
-RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the webstie. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it. I have included error testing, so the channel will tell you if no URL service exists for the show you entered.  
-
-The Hulu section only allows for adding their original shows that allow viewing through their site without having to enter a username and password. It is not a substitute for the Hulu channel and will not pull up your queue or any other data specific to your account.
+RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the website or direct links to the video files (like .mp4) are in the feed. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it or the feed include direct video file links. I have included error testing, so the channel will tell you if no URL service exists for the show you entered.  
 
 The format for the URL to be entered is given below and usually follows the URL address given in your browsers address bar:
 
@@ -32,13 +30,9 @@ RSS FEEDS
 Example: http://www.cwtv.com/feed/video/xml
 
 
-MPORTANT INSTRUCTIONS FOR ROKU USERS:
-
-ROKU USERS MUST ACCESS THE CHANNEL WITH THE PLEX CHANNEL VERSION 2.6.5 (CURRENTLY THE PLEX TEST CHANNEL) TO HAVE ACCESS TO THE CORRECT USER ENTRY SCREEN. IF YOU DO NOT ALREADY HAVE THE PLEX TEST CHANNEL, IT IS AVAILABLE AT http://streamfree.tv...984-thread.html. TO ENSURE YOU HAVE THE RIGHT VERSION, LOOK IN THE UPPER RIGHT HAND CORNER OF YOUR PREFERENCES SCREEN. SOMETIMES JUST ENTERING THE CHANNEL STORE OR REBOOTING THE ROKU WILL UPDATE THE CHANNEL.
+IMPORTANT INSTRUCTIONS FOR ROKU USERS:
 
 A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
-
-THE ROKU USER ENTRY ONLY RETURNS A SEARCH PAGE IN PLEX CHANNEL VERSION 2.6.4 OR LOWER, SO ROKU USERS NEED TO USE THE PLEX TEST CHANNEL VERSION 2.6.5. OTHERWISE, THE SEARCH ENTRY PAGE FOR ROKU WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER. 
 
 IMPORTANT NOTE FOR ADVANCED USERS:
 For those who may decide to edit the json data file attached to this channel to add shows there are a few things to keep in mind. It pulls the original list of shows from a JSON data file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 

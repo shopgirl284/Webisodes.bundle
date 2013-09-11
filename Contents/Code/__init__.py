@@ -198,7 +198,7 @@ def SectionTools (title):
 ########################################################################################################################
 def RokuUsers (title):
 # this is special instructions for Roku users
-  return ObjectContainer(header="Special Instructions for Roku Users", message="To add a new show, Roku users must be using version 2.6.5 or higher of the Plex Roku Channel (currently requires using PlexTest channel). Also, adding the URL for shows is made much easier with the Remoku (www.remoku.tv) WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD SHOWS SECTION USING ROKU PLEX CHANNELS 2.6.4. THAT VERSION USES A SEARCH INSTEAD OF ENTRY SCREEN AND EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID SHOW ICON.")
+  return ObjectContainer(header="Special Instructions for Roku Users", message="Adding the URL for shows is made much easier with the Remoku (www.remoku.tv) ")
 
 #############################################################################################################################
 # The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
