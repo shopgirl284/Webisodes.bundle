@@ -6,7 +6,6 @@ ICON     = 'icon-default.png'
 
 RSS_ICON = 'rss-feed-icon.png'
 YOUTUBE_ICON = 'youtube-icon.png'
-HULU_ICON = 'hulu-icon.png'
 YAHOO_ICON = 'yahoo-icon.png'
 VIMEO_ICON = 'vimeo-icon.png'
 BLIPTV_ICON = 'bliptv-icon.png'
@@ -15,19 +14,10 @@ SHOW_DATA = 'data.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
 
-RE_LIST_ID = Regex('listId: "(.+?)", pagesConfig: ')
-RE_CONTENT_ID = Regex('CONTENT_ID = "(.+?)";')
-RE_HULU_ID = Regex('var rawData = {"id": (.+?), "name":')
-RE_HULU_TOKEN = Regex("API_DONUT = '(.+?)';")
-
 YouTubeFeedURL = 'https://gdata.youtube.com/feeds/api/'
-HuluEpURL = 'http://www.hulu.com/watch/'
-HuluJSON = 'http://www.hulu.com/mozart/v1.h2o/shows/%s/episodes?free_only=0&show_id=%s&sort=seasons_and_release&video_type=episode&items_per_page=32&access_token=%s'
 YahooURL = 'http://screen.yahoo.com'
-YahooOrigURL = 'http://screen.yahoo.com/yahoo-originals/'
-YahooJSON = 'http://screen.yahoo.com/_xhr/slate-data/?list_id=%s&start=0&count=50&pc_starts=1,6,11,16,21,26&pc_layouts=1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u,1u-1u-1u-1u-1u'
-# This is a global variable for the parameters of the Yahoo JSON data file. Currently it returns 32 items. 
-# To add more returned results, add the last number plus 5 to pc_starts and ",1u-1u-1u-1u-1u" to pc_layouts for each five entries you want to add
+YahooShowJSON = 'http://screen.yahoo.com/ajax/resource/channel/id/%s;count=20;start=%s'
+YahooShowURL = 'http://screen.yahoo.com/%s/%s.html'
 
 http = 'http:'
 MAXRESULTS = 50
@@ -69,7 +59,6 @@ def MainMenu():
   json_data = Resource.Load(SHOW_DATA)
   Dict["shows"] = JSON.ObjectFromString(json_data)
   
-  #oc.add(DirectoryObject(key=Callback(OtherSections, title="Hulu Original Shows", show_type='hulu'), title="Hulu Original Shows", thumb=R(HULU_ICON)))
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Yahoo Screen Original Shows", show_type='yahoo'), title="Yahoo Screen Original Shows", thumb=R(YAHOO_ICON)))
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Blip TV Shows", show_type='blip'), title="Blip TV Shows", thumb=R(BLIPTV_ICON)))
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Vimeo Shows", show_type='vimeo'), title="Vimeo Shows", thumb=R(VIMEO_ICON)))
@@ -146,10 +135,10 @@ def OtherSections(title, show_type):
       if not thumb:
         try:
           # THOUGHT ABOUT CHANGING THIS TO A REDIRECT THUMB BUT THE OPTION TO ADD YOUR OWN THUMB WOULD NOT WORK IF THIS WERE IN THE CALLBACK
-          if show_type == 'yahoo':
-            thumb = GetYahooThumb(title)
-          else:
+          try:
             thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
+          except:
+            thumb = R(ICON)
           if not thumb.startswith('http'):
             thumb = http + thumb
         except:
@@ -163,8 +152,6 @@ def OtherSections(title, show_type):
           oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
         else:
           oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
-      elif show_type == 'hulu':
-        oc.add(DirectoryObject(key=Callback(ShowHulu, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
       elif show_type == 'yahoo':
         oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
       elif show_type == 'blip':
@@ -198,7 +185,7 @@ def SectionTools (title):
 ########################################################################################################################
 def RokuUsers (title):
 # this is special instructions for Roku users
-  return ObjectContainer(header="Special Instructions for Roku Users", message="Adding the URL for shows is made much easier with the Remoku (www.remoku.tv) ")
+  return ObjectContainer(header="Special Instructions for Roku Users", message="To add a new show, Roku users must be using version 2.6.5 or higher of the Plex Roku Channel (currently requires using PlexTest channel). Also, adding the URL for shows is made much easier with the Remoku (www.remoku.tv) WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD SHOWS SECTION USING ROKU PLEX CHANNELS 2.6.4. THAT VERSION USES A SEARCH INSTEAD OF ENTRY SCREEN AND EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID SHOW ICON.")
 
 #############################################################################################################################
 # The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
@@ -334,221 +321,56 @@ def CreateObject(url, title, summary, originally_available_at, thumb, include_co
     return ObjectContainer(objects=[new_object])
   else:
     return new_object
-###################################################################################################
-# This is for shows that are on Hulu. 
-# Unfortunately Hulu Webkit only plays audio for me at this time, so not fully tested
-@route(PREFIX + '/showhulu')
-def ShowHulu(title, url):
-  oc = ObjectContainer(title2 = title)
-  show_title = title
-  show_url = url
-  show_id = HuluID(url)
-  # they changed the access_token for the JSON, so now just pulling it from page
-  access_token = HuluToken(url)
-  json_url = HuluJSON %(show_id, show_id, access_token)
+######################################################################################################
+# This is a JSON to produce videos on Yahoo
+@route(PREFIX + '/showyahoo', start=int)
+def ShowYahoo(title, url, thumb, start=0):
 
+  oc = ObjectContainer(title2=title)
+  url = url.replace(YahooURL, '').replace('/', '')
   try:
-    ep_data = JSON.ObjectFromURL(json_url)
+    data = JSON.ObjectFromURL(YahooShowJSON %(url, start))
   except:
-    return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
+    try:
+      # This is to catch any old coded urls that may no longer be correct
+      url = url.replace('-', '')
+      data = JSON.ObjectFromURL(YahooShowJSON %(url, start))
+    except:
+      return ObjectContainer(header=L('Error'), message=L('This feed does not contain any video'))
 
-  for video in ep_data['data']:
-    ep_url = HuluEpURL + str(video['video']['id'])
-    title = video['video']['title']
-    episode =  video['video']['episode_number']
-    season = video['video']['season_number']
-    thumb = video['video']['thumbnail_url']
-    duration = video['video']['duration']
-    duration = float(duration) * 1000
-    date = Datetime.ParseDate(video['video']['available_at'])
-    summary = video['video']['description']
+  total = data['total']
+  x=0
+  for video in data['videos']:
+    x=x+1 
+    url_show = video['channel_url_alias']
+    url_name = video['url_alias'] 
+    video_url = YahooShowURL %(url_show, url_name)
+    duration = int(video['duration']) * 1000
+    date = Datetime.ParseDate(video['publish_time'])
+    summary = video['description']
+    title = video['title'] 
+    video_thumb = video['thumbnails'][1]['url']
+    provider_name = video['provider_name']
 
-    oc.add(EpisodeObject(
-      url = ep_url, 
-      title = title,
-      season = season,
-      thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(HULU_ICON)),
+    oc.add(VideoClipObject(
+      url = video_url, 
+      title = title, 
+      thumb = Resource.ContentsOfURLWithFallback(video_thumb),
       summary = summary,
-      index = int(episode),
-      duration = int(duration),
+      duration = duration,
       originally_available_at = date))
 
-  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='hulu', title=title), title="Delete Hulu Show", summary="Click here to delete this Hulu Show", thumb=R(ICON)))
-
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='hulu', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
-
+# Paging code. Each page pulls 20 results use x counter for need of next page
+  if x >= 20 and x != total:
+    start = start + 20
+    oc.add(NextPageObject(
+      key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start), 
+      title = L("Next Page ...")))
+          
   if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")      
+    return ObjectContainer(header="Empty", message="This directory appears to be empty or contains videos that are not compatible with this channel.")      
   else:
     return oc
-
-###############################################################################################################
-# This function pulls the show ID from each show page for it to be entered into the JSON data url for Hulu
-# The best place to pull it is in the show's URL from a javascript in the head of type text/javascript that
-# contains the line "Hulu.Mobile.currentShowId = 6918;"
-@route(PREFIX + '/huluid')
-def HuluID(url):
-  ID = ''
-  content = HTTP.Request(url, cacheTime = CACHE_1DAY).content
-  ID = RE_HULU_ID.search(content).group(1)
-  return ID
-
-###############################################################################################################
-# This function pulls the API_DONUT from each show page for it to be entered into the JSON data url for Hulu as the access token
-# This access token seems to change every day
-@route(PREFIX + '/hulutoken')
-def HuluToken(url):
-  token = ''
-  content = HTTP.Request(url, cacheTime = CACHE_1HOUR).content
-  token = RE_HULU_TOKEN.search(content).group(1)
-  return token
-
-###############################################################################################################
-# This function splits Yahoo Shows into two folders to pull the first 3 videos at top and any current episodes with the JSON data file
-# through the VideoYahoo function and extra videos that is found may be in the second carousel through the MoreVideosYahoo function
-# Not sure if I should keep both section for all Yahoo Shows or just use it for Burning Love 
-@route(PREFIX + '/yahooshows')
-def ShowYahoo(title, url, thumb):
-# Create two folders, for current episodes and for other videos that we can pull from the MoreVideosYahoo function below
-  oc = ObjectContainer(title2=title)
-
-  show_title = title
-  show_url = url
-  oc.add(DirectoryObject(
-    key=Callback(VideoYahoo, title=title, url=url),
-    title='Latest Videos',
-    thumb=thumb))
-
-  oc.add(DirectoryObject(
-    key=Callback(MoreVideosYahoo, title=title, url=url),
-    title='Addtional Videos',
-    thumb=thumb))
-
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='yahoo', title=title), title="Delete Yahoo Show", summary="Click here to delete this Yahoo Show", thumb=R(ICON)))
-      
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='yahoo', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
-
-  return oc
-
-###############################################################################################################
-# This function pulls the Content ID from each show page for it to be entered into the JSON data url
-# One show (Animal All Stars) does use a List ID instead, so we check for that List ID first.
-@route(PREFIX + '/yahooid')
-def YahooID(url):
-  ID = ''
-  content = HTTP.Request(url, cacheTime = CACHE_1DAY).content
-  try:
-    ID = RE_LIST_ID.search(content).group(1)
-  except:
-    ID = RE_CONTENT_ID.search(content).group(1)
-  return ID
-
-################################################################################################################
-# This function pulls the videos for Yahoo shows using JSON data file
-# It pulls the videos in the main box as well as any recent episodes
-@route(PREFIX + '/showyahoo')
-def VideoYahoo(title, url):
-
-  oc = ObjectContainer(title2=title)
-  JSON_ID = YahooID(url)
-  # could clean this url up with global variables
-  JSON_url = YahooJSON %JSON_ID
-  try:
-    data = JSON.ObjectFromURL(JSON_url)
-  except:
-    return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
-
-  if data.has_key('items'):
-    for video in data['items']:
-      description = video['summary_short']
-      desc_data = HTML.ElementFromString(description)
-      summary = desc_data.xpath('//text()')[0]
-      title = video['title_short'] 
-      thumb = video['image_thumb_url']
-      if video['type'] == 'video':
-        url = video['link_url'] 
-        duration = Datetime.MillisecondsFromString(video['duration'])
-        date = Datetime.ParseDate(video['date'])
-		# some entries do not have urls
-        if url:
-          if not url.startswith('http://'):
-            url = YahooURL + url
-
-          oc.add(VideoClipObject(
-            url = url, 
-            title = title, 
-            thumb = Resource.ContentsOfURLWithFallback(thumb),
-            summary = summary,
-            duration = duration,
-            originally_available_at = date))
-	# This section is for show with type link in json data that have no dates or duration(just one Yahoo Animal Allstars)
-      else:
-        # The url in the link_url field does not work with URL service so pull url out of summary_short
-        url = desc_data.xpath('//a//@href')[0]
-		# some entries do not have urls
-        if url:
-          if not url.startswith('http://'):
-            url = YahooURL + url
-
-          oc.add(VideoClipObject(
-            url = url, 
-            title = title, 
-            summary = summary,
-            thumb = Resource.ContentsOfURLWithFallback(thumb))) 
-
-  # They already put these in the right order, so adding a sort just messes up the order because sometimes three episodes are released on the same day
-  # oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
-  if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
-  else:
-    return oc
-
-#####################################################################################################################
-# This picks up videos in the second section on a show page with an id="mediabcarouselmixedlpca_2"
-# It only picks up older episodes available on the Yahoo Screens website for Burning Love right now
-# BECAUSE WE DO A 1 DAY CACHE ON THE HTML, THIS MAY NOT UPDATE VIDEOS AS FAST AS NORMAL FOR VIDEO PULLS, BUT MISC VIDEOS SO NO ISSUE FOR NOW
-@route(PREFIX + '/morevideosyahoo')
-def MoreVideosYahoo(title, url):
-
-  oc = ObjectContainer(title2=title)
-  try:
-    html = HTML.ElementFromURL(url)
-    smTitle = title.lower()
-    smTitle = smTitle.replace(" ", '')
-    for video in html.xpath('//div[@id="mediabcarouselmixedlpca_2"]/div/div/ul/li/ul/li'):
-      url = video.xpath('./div/a/@href')[0]
-      url = YahooURL + url
-      thumb = video.xpath('./div/a/img//@style')[0]
-      thumb = thumb.replace("background-image:url('", '').replace("');", '')
-      title = video.xpath('./div/div/p/a//text()')[0]
-      data_provider =  video.xpath('.//@data-provider-id')[0]
-	
-      if smTitle in data_provider: 
-        oc.add(VideoClipObject(
-          url = url, 
-          title = title, 
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(YAHOO_ICON))))
-
-      else:  
-        return ObjectContainer(header="Empty", message="There are no addtional videos to display for this show right now.")
-
-  except:  
-    return ObjectContainer(header="Empty", message="There are no addtional videos to display for this show right now.")
-
-  # This section does not have a release date, so you would have to sort by title, which will not always give your the best results
-  # oc.objects.sort(key = lambda obj: obj.title, reverse=True)
-    
-  if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
-  else:
-    return oc
-    
 ###################################################################################################################
 # This is a function to produce the JSON url needed for the YouTubeFeed function
 # It returns to the OtherSectiona so it can also serve as added url validation
@@ -756,25 +578,6 @@ def ShowBlip(title, url):
     return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
   else:
     return oc
-
-#############################################################################################################################
-# This is a function to pull the thumb from a the Yahoo Originals page and uses the show title to find the correct image
-# It does not go through all selections in the carousel, but picks up most.  Would have to know the Yahoo section like 
-# comedy, living, finance, etc to be able to pull the full list from the carousel
-@route(PREFIX + '/getyahoothumb')
-def GetYahooThumb(title):
-
-  try:
-    thumb_page = HTML.ElementFromURL(YahooOrigURL, cacheTime = CACHE_1WEEK)
-    try:
-      thumb = thumb_page.xpath('//a[@class="media"]/img[@alt="%s"]//@style' % title)[0]
-    except:
-      thumb = thumb_page.xpath('//a[@class="img-wrap"]/img[@alt="%s"]//@style' % title)[0]
-    thumb = thumb.replace("background-image:url('", '').replace("');", '')
-  except:
-    thumb = R(YAHOO_ICON)
-
-  return thumb
 
 ############################################################################################################################
 # This is to test if there is a Plex URL service for  given url.  
