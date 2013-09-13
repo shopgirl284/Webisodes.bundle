@@ -349,23 +349,40 @@ def ShowYahoo(title, url, thumb, start=0):
     date = Datetime.ParseDate(video['publish_time'])
     summary = video['description']
     title = video['title'] 
-    video_thumb = video['thumbnails'][1]['url']
+    if '[' in title:
+      ep_info = title.split('[')[1].replace(']', '')
+      if 'S' in ep_info:
+        season = int(ep_info.split(':')[0].replace('S', ''))
+        episode = ep_info.split(':')[1]
+      else:
+        season = 0
+        episode = ep_info
+      episode = int(episode.replace('Ep.', ''))
+      title = title.split('[')[0]
+    else:
+      season = 0
+      episode = 0
+    thumb = video['thumbnails'][1]['url']
+    # May need this for excluding videos that may not work with URL service
     provider_name = video['provider_name']
 
-    oc.add(VideoClipObject(
+    oc.add(EpisodeObject(
       url = video_url, 
       title = title, 
-      thumb = Resource.ContentsOfURLWithFallback(video_thumb),
+      thumb = Resource.ContentsOfURLWithFallback(thumb),
+      index = episode,
+      season = season,
       summary = summary,
       duration = duration,
       originally_available_at = date))
 
 # Paging code. Each page pulls 20 results use x counter for need of next page
   if x >= 20 and x != total:
-    start = start + 20
-    oc.add(NextPageObject(
-      key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start), 
-      title = L("Next Page ...")))
+    if start != total:
+      start = start + 20
+      oc.add(NextPageObject(
+        key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start),
+        title = L("Next Page ...")))
           
   if len(oc) < 1:
     return ObjectContainer(header="Empty", message="This directory appears to be empty or contains videos that are not compatible with this channel.")      
