@@ -338,7 +338,7 @@ def ShowYahoo(title, url, thumb, start=0):
     except:
       return ObjectContainer(header=L('Error'), message=L('This feed does not contain any video'))
 
-  total = data['total']
+  #total = data['total']
   x=0
   for video in data['videos']:
     x=x+1 
@@ -362,7 +362,11 @@ def ShowYahoo(title, url, thumb, start=0):
     else:
       season = 0
       episode = 0
-    thumb = video['thumbnails'][1]['url']
+    try:
+      thumb = video['thumbnails'][1]['url']
+    except:
+      thumb = R(ICON)
+    #thumb = video['thumbnails'][1]['url']
     # May need this for excluding videos that may not work with URL service
     provider_name = video['provider_name']
 
@@ -377,12 +381,16 @@ def ShowYahoo(title, url, thumb, start=0):
       originally_available_at = date))
 
 # Paging code. Each page pulls 20 results use x counter for need of next page
-  if x >= 20 and x != total:
-    if start != total:
-      start = start + 20
-      oc.add(NextPageObject(
-        key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start),
-        title = L("Next Page ...")))
+  if x >= 20:
+    start = start + 20
+    oc.add(NextPageObject(key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start), title = L("Next Page ...")))
+# Paging code. Each page pulls 20 results use x counter for need of next page
+  #if x >= 20 and x != total:
+    #if start != total:
+      #start = start + 20
+      #oc.add(NextPageObject(
+        #key = Callback(ShowYahoo, title = title, url=url, thumb=thumb, start=start),
+        #title = L("Next Page ...")))
           
   if len(oc) < 1:
     return ObjectContainer(header="Empty", message="This directory appears to be empty or contains videos that are not compatible with this channel.")      
