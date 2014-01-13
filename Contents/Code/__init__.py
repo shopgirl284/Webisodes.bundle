@@ -95,7 +95,7 @@ def SectionRSS(title):
           except:
             thumb = R(RSS_ICON)
 
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type='rss'), title=title, summary=description, thumb=thumb))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type='rss', thumb=thumb), title=title, summary=description, thumb=thumb))
 
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='rss'), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or not in the proper format for use with this channel."))
@@ -149,15 +149,15 @@ def OtherSections(title, show_type):
         # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
         json_url = YouTubeJSON(url)
         if json_url != 'false':
-          oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+          oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
         else:
           oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
       elif show_type == 'yahoo':
-        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
       elif show_type == 'blip':
-        oc.add(DirectoryObject(key=Callback(ShowBlip, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowBlip, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
       else:
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb), summary=description))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
     else:
       i+=1
 
@@ -199,9 +199,7 @@ def ResetShows(title):
 # TO ADD AUDIO SUPPORT FOR THOSE WITH URL SERVICES ADD A TRY/EXCEPT FOR 
 # rss_type = item.xpath('./media:content//@type', namespaces=NAMESPACES2)[0]
 @route(PREFIX + '/showrss')
-def ShowRSS(title, url, show_type):
-
-# The RSSSection try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
+def ShowRSS(title, url, show_type, thumb):
 
   oc = ObjectContainer(title2=title)
   show_title = title
@@ -212,58 +210,112 @@ def ShowRSS(title, url, show_type):
     rss_url = url
   xml = XML.ElementFromURL(rss_url)
   for item in xml.xpath('//item'):
-    epUrl = item.xpath('./link//text()')[0]
-    title = item.xpath('./title//text()')[0]
-    date = item.xpath('./pubDate//text()')[0]
-    # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.xpath('./description//text()')[0]
+    # We try to pull the enclosure or the first media:content given since that tends to be the highest quality.
+    # There is too much variety in the way quality is specified to pull all and give quality options
+    # This code can be added to only return media of type audio or video - [contains(@type,"video") or contains(@type,"audio")]
+    # Not currently in code so we can specify why a feed item failed due to being the wrong type of media
     try:
-      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
-      epUrl = new_url
-    except:
-      pass
-    html = HTML.ElementFromString(epDesc)
-    els = list(html)
-    try:
-      thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+      media_url = item.xpath('.//enclosure/@url')[0]
     except:
       try:
-        thumb = html.cssselect('img')[0].get('src')
+        media_url = item.xpath('.//media:content/@url', namespaces=NAMESPACES2)[0]
       except:
-        thumb = R(RSS_ICON)
-
-    summary = []
-
-    for el in els:
-      if el.tail: summary.append(el.tail)
-	
-    summary = '. '.join(summary)
+        media_url = None
+    # Here we split the type and media so we can get a type for those with a URL service
     try:
-      media_url = item.xpath('./enclosure//@url')[0]
+      media_type = item.xpath('.//enclosure/@type')[0]
     except:
-      media_url = ''
+      try:
+        media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
+      except:
+        media_type = None
+    try:
+      link = item.xpath('./link//text()')[0]
+    except:
+      # If there is a media_url, we can allow the url field to be blank since it does not have to go through the URL service
+      if media_url:
+        link = None
+      else:
+        continue
+    # The link is not needed since these have a media url, but there may be a feedburner feed that has a Plex URL service
+    try:
+      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
+      link = new_url
+    except:
+      pass
+    title = item.xpath('./title//text()')[0]
+    # EVERYTHING BUT THE TITLE IS MADE OPTIONAL
+    try:
+      date = item.xpath('./pubDate//text()')[0]
+    except:
+      date = None
+    try:
+      item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+    except:
+      item_thumb = None
+    try:
+      # The description actually contains pubdate, link with thumb and description so we need to break it up
+      epDesc = item.xpath('./description//text()')[0]
+      (summary, new_thumb) = SummaryFind(epDesc)
+      if new_thumb:
+        item_thumb = new_thumb
+    except:
+      summary = None
+    # Not having a value for the summary causes issues
+    if not summary:
+      summary = 'no summary'
+    if item_thumb:
+      thumb = item_thumb
 
-    test = URLTest(epUrl)
-    if test == 'true' and 'archive.org' not in url:
-      oc.add(VideoClipObject(
-        url = epUrl, 
-        title = title, 
-        summary = summary, 
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)), 
-        originally_available_at = Datetime.ParseDate(date)
-      ))
+    # With Archive.org there is an issue where it is using https instead of http sometimes for the links and media urls
+    # and when this happens it causes errors so we have to check those urls here and change them
+    if link and link.startswith('https://archive.org/'):
+      link = link.replace('https://', 'http://')
+    if media_url and media_url.startswith('https://archive.org/'):
+      media_url = media_url.replace('https://', 'http://')
+    # Since we allow a blank link if there is a media url, we make sure it has a link before sending it to the URLTest needed for URLs without a media_url
+    if link:
+      test = URLTest(link)
+    else:
+      test = 'false'
+    # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
+    # Added Album Object in case some are audio feeds but they must have a media_type that matches for this
+    if test == 'true' and 'archive.org' not in link:
+      if date:
+        date = Datetime.ParseDate(date)
+      if media_type and 'audio' in media_type:
+        # Safest to use an album object and not a track object here since not sure what we may encounter
+        # Audio for Archive.org will give error if you add #Track or use a TrackObject() here
+        oc.add(AlbumObject(
+          url = link, 
+          title = title, 
+          summary = summary, 
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+          originally_available_at = date
+        ))
+      else:
+        oc.add(VideoClipObject(
+          url = link, 
+          title = title, 
+          summary = summary, 
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+          originally_available_at = date
+        ))
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
     else:
       if media_url:
-        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, thumb=thumb, url=media_url))
+        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
       else:
         Log('The url test failed and returned a value of %s' %test)
-        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Medie Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title), title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or link to media files for %s.' %title))
 
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type=show_type, title=title), title="Delete This Show", summary="Click here to delete this show", thumb=R(ICON)))
 
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type=show_type, url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
+  # Adding this below causes an error with the Directory object above
+  #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+  
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=show_title, show_type=show_type), title="Delete %s" %show_title, summary="Click here to delete this show"))
+
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type=show_type, url=url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -273,38 +325,46 @@ def ShowRSS(title, url, show_type):
 
 ####################################################################################################
 # This function creates an object container for RSS feeds that have a media file in the feed
-# Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
 @route(PREFIX + '/createobject')
-def CreateObject(url, title, summary, originally_available_at, thumb, include_container=False):
+def CreateObject(url, media_type, title, originally_available_at, thumb, summary, include_container=False):
 
-  if url.endswith('.mp3'):
+  local_url=url.split('?')[0]
+  audio_codec = AudioCodec.AAC
+  # Since we want to make the date optional, we need to handle the Datetime.ParseDate() as a try in case it is already done or blank
+  try:
+    originally_available_at = Datetime.ParseDate(originally_available_at)
+  except:
+    pass
+  if local_url.endswith('.mp3'):
     container = 'mp3'
     audio_codec = AudioCodec.MP3
-  elif  url.endswith('.m4a') or url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264'):
+  elif  local_url.endswith('.m4a') or local_url.endswith('.mp4') or local_url.endswith('MPEG4') or local_url.endswith('h.264'):
     container = Container.MP4
-    audio_codec = AudioCodec.AAC
-  elif url.endswith('.flv') or url.endswith('Flash+Video'):
+  elif local_url.endswith('.flv') or local_url.endswith('Flash+Video'):
     container = Container.FLV
-  elif url.endswith('.mkv'):
+  elif local_url.endswith('.mkv'):
     container = Container.MKV
+  else:
+    Log('entered else statement')
+    container = ''
 
-  if url.endswith('.mp3') or url.endswith('.m4a'):
+  if 'audio' in media_type:
+    # This gives errors with AlbumObject, so it has to be a TrackObject
     object_type = TrackObject
-  elif url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264') or url.endswith('.flv') or url.endswith('Flash+Video') or url.endswith('.mkv'):
-    audio_codec = AudioCodec.AAC
+  elif 'video' in media_type:
     object_type = VideoClipObject
   else:
-    Log('entered last else the value of url is %s' %url)
-    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The video file %s is not a type currently supported by this channel' %url)
+    Log('This media type is not supported')
+    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb=R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
 
   new_object = object_type(
-    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
+    key = Callback(CreateObject, url=url, media_type=media_type, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
     title = title,
-    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(RSS_ICON)),
     summary = summary,
-    originally_available_at = Datetime.ParseDate(originally_available_at),
+    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON),
+    originally_available_at = originally_available_at,
     items = [
       MediaObject(
         parts = [
@@ -373,7 +433,7 @@ def ShowYahoo(title, url, thumb, start=0):
     oc.add(EpisodeObject(
       url = video_url, 
       title = title, 
-      thumb = Resource.ContentsOfURLWithFallback(thumb),
+      thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON),
       index = episode,
       season = season,
       summary = summary,
@@ -492,7 +552,7 @@ def ShowYouTube(title, url, json_url, page = 1):
         url = video_url,
         title = video_title,
         summary = summary,
-        thumb = Resource.ContentsOfURLWithFallback(thumb),
+        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON),
         originally_available_at = date,
         rating = rating
       ))
@@ -590,7 +650,7 @@ def ShowBlip(title, url):
         summary = description,
         originally_available_at = date,
         duration = duration,
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(BLIPTV_ICON))))
+        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=BLIPTV_ICON)))
 
   oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
@@ -604,9 +664,24 @@ def ShowBlip(title, url):
   else:
     return oc
 
+#############################################################################################################################
+# The description actually contains pubdate, link with thumb and description so we need to break it up
+@route(PREFIX + '/summaryfind')
+def SummaryFind(epDesc):
+  
+  html = HTML.ElementFromString(epDesc)
+  description = html.xpath('//p//text()')
+  summary = ' '.join(description)
+  if 'Tags:' in summary:
+    summary = summary.split('Tags:')[0]
+  try:
+    item_thumb = html.cssselect('img')[0].get('src')
+  except:
+    item_thumb = None
+  return (summary, item_thumb)
+
 ############################################################################################################################
 # This is to test if there is a Plex URL service for  given url.  
-# Seems to return some RSS feeds as not having a service when they do, so currently unused and needs more testing
 #       if URLTest(url) == "true":
 @route(PREFIX + '/urltest')
 def URLTest(url):
@@ -618,23 +693,34 @@ def URLTest(url):
   return url_good
 
 ############################################################################################################################
-# This would possibly eventually allow reentry of a bad url. Right Now it just keeps a section of show from giving an error
-# for the entire section if one of the URLs are incorrect
+# This keeps a section of the show from giving an error for the entire section if one of the URLs does not have a service or attached media
+@route(PREFIX + '/urlnoservice')
+def URLNoService(title):
+  return ObjectContainer(header="Error", message='There is no Plex URL service or media file link for the %s show entry. A Plex URL service or a link to media files in the show entry is required for this channel to create playable media. If all entries for this show give this error, you can use the Delete button shown at the end of the show entry listings to remove this show' %title)
+
+############################################################################################################################
+# This function creates an error message for feed entries that have an usupported media type and keeps a section of feeds from giving an error for the entire list of entries
+@route(PREFIX + '/urlunsupported')
+def URLUnsupported(url, title):
+  oc = ObjectContainer()
+  
+  return ObjectContainer(header="Error", message='The media for the %s show entry is of a type that is not supported. If you get this error with all entries for this show, you can use the Delete option shown at the end of the show entry listings to remove this show from the channel' %title)
+
+  return oc
+
+############################################################################################################################
+# This function creates a directory for incorectly entered urls and keeps a section of shows from giving an error if one url is incorrectly entered
+# Would like to allow for reentry of a bad url but for now, just allows for deletion. 
 @route(PREFIX + '/urlerror')
 def URLError(url, show_type):
 
   oc = ObjectContainer()
   
-  oc.add(DirectoryObject(key=Callback(EditShow, url=url), title="Edit Show", thumb=R(ICON)))
-  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Show", url=url, show_type=show_type), title="Delete Show", thumb=R(ICON), summary="Delete this URL from your list of Shows"))
+  oc.add(DirectoryObject(key=Callback(EditShow, url=url), title="Edit Show"))
+
+  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Show", url=url, show_type=show_type), title="Delete Show", summary="Delete this URL from your list of shows"))
 
   return oc
-
-############################################################################################################################
-# This keeps a section of show from giving an error for the entire section if one of the URLs does not have a service
-@route(PREFIX + '/urlnoservice')
-def URLNoService(title):
-  return ObjectContainer(header="Error", message='There is no Plex URL service for the %s. A Plex URL service is required for RSS feeds to work. You can use the Delete Show button to remove this show' %title)
 
 #############################################################################################################################
 # Here we could possible include or pull the show type and give messages based on type that show proper format
