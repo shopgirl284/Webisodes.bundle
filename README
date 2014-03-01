@@ -35,5 +35,7 @@ IMPORTANT INSTRUCTIONS FOR ROKU USERS:
 A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
 
 IMPORTANT NOTE FOR ADVANCED USERS:
+WARNING: PLEASE MAKE BACKUPS BEFORE EDITING ANY FILES. CHOOSING TO EDIT THESE FILES CAN COMPLETELY BREAK THE CHANNEL, SO CHOOSING TO DO SO IS AT YOUR OWN RISK. I AM UNABLE TO PROVIDE SUPPORT FOR ISSUES THAT MAY ARISE IF THESE FILES BECOME CORRUPTED.
 For those who may decide to edit the json data file attached to this channel to add shows there are a few things to keep in mind. It pulls the original list of shows from a JSON data file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 
+The Dict[] file for the channel is located in the /Plex Media Server/Plug-in Support/Data/com.plexapp.plugins.webisodes/ folder. If the channel becomes corrupt you will have to delete that file to reinstall the channel. 
 And the numbering system must stay intact, so never completely delete an entry from the json file, just remove or add the data in the specific entry fields you want to add or delete.
