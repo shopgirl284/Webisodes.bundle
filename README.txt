@@ -1,0 +1,47 @@
+This is a Plex channel that can pull your favorite webisodes on it.
+
+It can pull shows with available Plex URL services that are RSS feeds, from Yahoo, Vimeo, BlipTV, or YouTube Playlist.
+
+It requires a specific structure of the shows URL. Please see the notes below.
+
+NOTES AND INSTRUCTIONS FOR USING THIS CHANNEL
+
+With this channel you can add shows from all the sources listed.  I have also added a "Channel Tools" section with some additional tools that can be useful including resetting the shows to the default in case you have any problems, instructions for Roku users. 
+
+RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the website or direct links to the video files (like .mp4) are in the feed. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it or the feed include direct video file links. I have included error testing, so the channel will tell you if no URL service exists for the show you entered.  
+
+The format for the URL to be entered is given below and usually follows the URL address given in your browsers address bar:
+
+YOUTUBE
+Examples:
+Playlist url: http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G
+User upload url: http://www.youtube.com/user/NewarkTimesWeddings
+
+YAHOO SCREEN ORIGINAL SHOWS
+Example: http://screen.yahoo.com/failure-club/
+
+VIMEO
+Example: http://vimeo.com/highmaintenance
+
+BLIPTV
+Example: http://blip.tv/bigcountryblues
+
+RSS FEEDS
+Example: http://www.cwtv.com/feed/video/xml
+
+
+IMPORTANT INSTRUCTIONS FOR ROKU USERS:
+
+A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
+
+IMPORTANT INSTRUCTIONS FOR Plex/Web USERS:
+
+If you use the new version of Plex/Web AT http://plex.tv/web/app, YOU CAN COPY AND PASTE THE URL ADDRESS OF THE NEW URL YOU WOULD LIKE TO ADD INTO THE SEARCH BOX AT THE TOP OF THE SCREEN TO ADD THE CHANNEL. YOU MUST BE WITHIN THE DIRECTORY FOR THE TYPE OF SHOW YOU WOULD LIKE TO ADD. FOR EXAMPLE IF YOU OPENED OF THE YOUTUBE DIRECTORY WHICH SHOWS ALL OF YOUR CURRENTLY INSTALLED CHANNELS, THEN YOU CAN PASTE THE URL OF THE NEW CHANNEL YOU WOULD LIKE TO ADD IN THE SEARCH BOX OF THAT PAGE. A DIALOG BOX WILL APPEAR AND TELL YOU THAT THE SHOW HAS BEEN ADDED.
+
+THE PLEX/WEB INTERFACE WILL ONLY UPDATE ONCE A DAY UNLESS YOU CLEAR YOUR CACHE. SO CHANGES MADE IN THE PLEX/WEB INTERFACE WILL BE SEEN IMMEDIATELY IN OTHER CLIENTS BUT WILL TAKE A DAY TO SHOW UP IN THE PLEX/WEB INTERFACE UNLESS THE CACHE IS CLEARED.
+
+IMPORTANT NOTE FOR ADVANCED USERS:
+WARNING: PLEASE MAKE BACKUPS BEFORE EDITING ANY FILES. CHOOSING TO EDIT THESE FILES CAN COMPLETELY BREAK THE CHANNEL, SO CHOOSING TO DO SO IS AT YOUR OWN RISK. I AM UNABLE TO PROVIDE SUPPORT FOR ISSUES THAT MAY ARISE IF THESE FILES BECOME CORRUPTED.
+For those who may decide to edit the json data file attached to this channel to add shows there are a few things to keep in mind. It pulls the original list of shows from a JSON data file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 
+The Dict[] file for the channel is located in the /Plex Media Server/Plug-in Support/Data/com.plexapp.plugins.webisodes/ folder. If the channel becomes corrupt you will have to delete that file to reinstall the channel. 
+And the numbering system must stay intact, so never completely delete an entry from the json file, just remove or add the data in the specific entry fields you want to add or delete.
