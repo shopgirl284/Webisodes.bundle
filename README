@@ -10,7 +10,9 @@ With this channel you can add shows from all the sources listed.  I have also ad
 
 RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the website or direct links to the video files (like .mp4) are in the feed. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it or the feed include direct video file links. I have included error testing, so the channel will tell you if no URL service exists for the show you entered.  
 
-The format for the URL to be entered is given below and usually follows the URL address given in your browsers address bar:
+To add a new show to sections of the Webisode channel, other than the RSS feed, you just need to enter the name or id of the show. For example to add the show Burning Love to the Yahoo Screen section, you would just type in "Burning Love". For the YouTube section,you would enter the playlist id, channel id, or user name. You must include the PL at the beginning of playlist and UC at the beginning of channel ids for them to be recognized. For a playlist from Youtube with a url of https://www.youtube.com/playlist?list=PL4F5986B34F73F112, you would only need to enter "PL4F5986B34F73F112" or for a user account like http://www.youtube.com/user/NewarkTimesWeddings, you would just enter the user name NewarkTimesWeddings.
+
+If you are having issues with a show not being recognized or returning as invalid using the method above, you can instead enter the full url address for the show. The format for the URL to be entered is given below and usually follows the URL address given in your browsers address bar:
 
 YOUTUBE
 Examples:
