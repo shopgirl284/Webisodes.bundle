@@ -132,9 +132,12 @@ def OtherSections(title, show_type):
       i+=1
       try:
         page = HTML.ElementFromURL(url, cacheTime = CACHE_1DAY)
-        title = page.xpath("//head//meta[@property='og:title']//@content")[0]
+        try: title = page.xpath('//head//meta[@property="og:title"]//@content')[0]
+        # YouTube change the format of its playlist urls so the title was no longer picked up with og:title
+        # Adding this except will fix that and help with other shows as well
+        except: title = page.xpath('//meta[@name="title"]//@content')[0]
       except:
-        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type=show_type), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or not in the proper format for use with this channel."))
+        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type=show_type), title="Invalid or Incompatible URL - %s" %url, summary="The URL entered in the database was either incorrect or not in the proper format for use with this channel."))
         continue
 
       description = page.xpath("//head//meta[@name='description']//@content")[0] 
@@ -144,7 +147,9 @@ def OtherSections(title, show_type):
           try:
             thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
           except:
-            thumb = R(ICON)
+            # this is for youtube playlists
+            try: thumb = page.xpath('//div[@class="pl-header-thumb"]/img/@src')[0]
+            except: thumb = R(ICON)
           if not thumb.startswith('http'):
             thumb = http + thumb
         except:
@@ -157,7 +162,7 @@ def OtherSections(title, show_type):
         if json_url != 'false':
           oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
         else:
-          oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL", summary="The URL entered in the database was incorrect."))
+          oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL - %s" %title, summary="The URL entered in the database was incorrect."))
       elif show_type == 'yahoo':
         oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
       elif show_type == 'blip':
@@ -351,7 +356,7 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
   elif local_url.endswith('.mkv'):
     container = Container.MKV
   else:
-    Log('entered else statement')
+    Log('no container type found')
     container = ''
 
   if 'audio' in media_type:
@@ -471,6 +476,7 @@ def ShowYahoo(title, url, thumb, start=0):
 # It returns to the OtherSectiona so it can also serve as added url validation
 @route(PREFIX + '/youtubejson')
 def YouTubeJSON(url):
+  #Log('the value of url entering the YOUTUBEJSON function is %s' %url)
   if 'PL' in url:
     playlist = 'PL' + url.split('PL')[1]
     json_url = YouTubeFeedURL + 'playlists/' + playlist
@@ -483,8 +489,12 @@ def YouTubeJSON(url):
       # need to change all letters to lowercase
       user_name = user_name.lower()
       json_url = YouTubeFeedURL + 'users/' + user_name + '/uploads'
+    elif '/channel/' in url:
+      channel_id = url.split('/channel/') [1]
+      json_url = YouTubeFeedURL + 'users/' + channel_id + '/uploads'
     else:
       json_url = 'false'
+  #Log('the value of json_url is %s' %json_url)
   return json_url
 ####################################################################################################################
 # Currently this function will work with playlist or user upload feeds and produces results after the JSON url is constructed
@@ -751,15 +761,17 @@ def DeleteShow(url, show_type, title):
 # This is a function to add a show to the json data file.  Wanted to make a true add but running into errors based on 
 # the structure of my dictionary, so we created 50 items and just taking the first empty show and filling it with
 # the show info
+# NEED TO ADD A WORNING ABOUT CHANNELS IN YOUTUBE
 @route(PREFIX + '/addshow')
 def AddShow(show_type, query, url=''):
 
+  #Log('the value of query is %s' %query)
   url = query
   # Checking to make sure http on the front
   if url.startswith('www'):
     url = http + '//' + url
     
-  if not url.startswith('http://'):
+  if not url.startswith('http://') and not url.startswith('https://'):
     url = URLFix(url, show_type)
     
   i=1
@@ -813,19 +825,36 @@ def LoadData():
   return JSON.ObjectFromString(json_data)
 ###################################################################################################################
 # This is a function to make urls out of show names
-# It returns to the OtherSections so it can find local data and sends this on as url
+# It returns to the AddShow function to produce a proper url
 @route(PREFIX + '/urlfix')
 def URLFix(url, show_type):
 
-  # here strip any leading and trailing spaces
+  #Log('the value entering URLFix function of url is %s and the value of show_type is %s' %(url, show_type))
+  # Clean up the entry as much as possible by removing any extra url coding that may be added
+  if '/' in url:
+    url_list = url.split('/')
+    url = url_list[len(url_list)-1]
+  if '#' in url:
+    url = url.split('#')[0]
+  if '?' in url and '?list=PL' not in url:
+    url = url.split('?')[0]
+  # strip any leading and trailing spaces
   url = url.strip()
-  # here we have an if based on type
+  # edit based on type
   if show_type == 'youtube':
+    # remove any spaces
     url = url.replace(' ', '')
     if 'PL' in url:
+      # for plyalist
+      url = 'PL' + url.split('PL')[1]
       url = YouTube_URL + 'playlist?list=' + url
+    elif url.startswith('UC'):
+      # for channels
+      url = 'UC' + url.split('UC')[1]
+      url = YouTube_URL + 'channel/' + url
     else:
-      url = YouTube_URL + '/user/' + url
+      # for usernames
+      url = YouTube_URL + 'user/' + url
   else:
     url = url.lower()
     if show_type == 'yahoo':
@@ -837,6 +866,7 @@ def URLFix(url, show_type):
     else:
       url = url.replace(' ', '')
       url = VIMEO_URL + url
+  #Log('the value exiting URLFix function of url is %s' %url)
   return url
 #############################################################################################################################
 # To provide explanation for Plex/Web Interface
