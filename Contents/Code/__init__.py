@@ -12,6 +12,7 @@ BLIPTV_ICON = 'bliptv-icon.png'
 SHOW_DATA = 'data.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
+NAMESPACE_SMIL = {'smil': 'http://www.w3.org/2005/SMIL21/Language'}
 
 YouTubeFeedURL = 'https://gdata.youtube.com/feeds/api/'
 YahooURL = 'http://screen.yahoo.com/'
@@ -214,6 +215,7 @@ def ShowRSS(title, url, show_type, thumb):
 
   oc = ObjectContainer(title2=title)
   show_title = title
+  feed_title = title
   show_url = url
   if show_type == 'vimeo':
     rss_url = url + '/videos/rss'
@@ -221,111 +223,150 @@ def ShowRSS(title, url, show_type, thumb):
     rss_url = url
   xml = XML.ElementFromURL(rss_url)
   for item in xml.xpath('//item'):
-    # We try to pull the enclosure or the first media:content given since that tends to be the highest quality.
-    # There is too much variety in the way quality is specified to pull all and give quality options
-    # This code can be added to only return media of type audio or video - [contains(@type,"video") or contains(@type,"audio")]
-    # Not currently in code so we can specify why a feed item failed due to being the wrong type of media
-    try:
-      media_url = item.xpath('.//enclosure/@url')[0]
-    except:
-      try:
-        media_url = item.xpath('.//media:content/@url', namespaces=NAMESPACES2)[0]
-      except:
-        media_url = None
-    # Here we split the type and media so we can get a type for those with a URL service
-    try:
-      media_type = item.xpath('.//enclosure/@type')[0]
-    except:
-      try:
-        media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
-      except:
-        media_type = None
+  
+    # All Items must have a title
+    title = item.xpath('./title//text()')[0]
+    
+    # Try to pull the link for the item
     try:
       link = item.xpath('./link//text()')[0]
     except:
-      # If there is a media_url, we can allow the url field to be blank since it does not have to go through the URL service
-      if media_url:
-        link = None
-      else:
-        continue
+      link = None
     # The link is not needed since these have a media url, but there may be a feedburner feed that has a Plex URL service
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
       link = new_url
     except:
       pass
-    title = item.xpath('./title//text()')[0]
-    # EVERYTHING BUT THE TITLE IS MADE OPTIONAL
-    try:
-      date = item.xpath('./pubDate//text()')[0]
-    except:
-      date = None
-    try:
-      item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
-    except:
-      item_thumb = None
-    try:
-      # The description actually contains pubdate, link with thumb and description so we need to break it up
-      epDesc = item.xpath('./description//text()')[0]
-      (summary, new_thumb) = SummaryFind(epDesc)
-      if new_thumb:
-        item_thumb = new_thumb
-    except:
-      summary = None
-    # Not having a value for the summary causes issues
-    if not summary:
-      summary = 'no summary'
-    if item_thumb:
-      thumb = item_thumb
-
-    # With Archive.org there is an issue where it is using https instead of http sometimes for the links and media urls
-    # and when this happens it causes errors so we have to check those urls here and change them
     if link and link.startswith('https://archive.org/'):
+      # With Archive.org there is an issue where it is using https instead of http sometimes for the links and media urls
+      # and when this happens it causes errors so we have to check those urls here and change them
       link = link.replace('https://', 'http://')
+    # Test the link for a URL service
+    if link:
+      url_test = URLTest(link)
+    else:
+      url_test = 'false'
+    # Feeds from archive.org load faster using the CreateObject() function versus the URL service.
+    # Using CreateObject for Archive.org also catches items with no media and allows for feed that may contain both audio and video items
+    # If archive.org is sent to URL service, adding #video to the end of the link makes it load faster
+    if link and 'archive.org' in link:
+      url_test = 'false'
+      
+    # Try to pull media url for item
+    if url_test == 'false':
+    # We try to pull the enclosure or the highest bitrate media:content. If no bitrate, the first one is taken.
+    # There is too much variety in the way quality is specified to pull all and give quality options
+    # This code can be added to only return media of type audio or video - [contains(@type,"video") or contains(@type,"audio")]
+      try:
+        # So first get the first media url and media type in case there are not multiples it will not go through the loop
+        media_url = item.xpath('.//media:content/@url', namespaces=NAMESPACES2)[0]
+        media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
+        # Get a list of medias
+        medias = item.xpath('.//media:content', namespaces=NAMESPACES2)
+        bitrate = 0
+        for media in medias:
+          try: new_bitrate = int(media.get('bitrate', default=0))
+          except: new_bitrate = 0
+          if new_bitrate > bitrate:
+            bitrate = new_bitrate
+            media_url = media.get('url')
+            #Log("taking media url %s with bitrate %s"  %(media_url, str(bitrate)))
+            media_type = media.get('type')
+      except:
+        try:
+          media_url = item.xpath('.//enclosure/@url')[0]
+          media_type = item.xpath('.//enclosure/@type')[0]
+        except:
+          Log("no media:content objects found in bitrate check")
+          media_url = None
+          media_type = None
+    else:
+      # If the URL test was positive we do not need a media_url
+      media_url = None
+      # We do need to try to get a media type though so it will process it with the right player
+      try: media_type = item.xpath('.//enclosure/@type')[0]
+      except:
+        try: media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
+        except: media_type = None
+
+    #Log("the value of media url is %s" %media_url)
+    # With Archive.org there is an issue where it is using https instead of http sometimes for the media urls
+    # and when this happens it causes errors so we have to check those urls here and change them
     if media_url and media_url.startswith('https://archive.org/'):
       media_url = media_url.replace('https://', 'http://')
-    # Since we allow a blank link if there is a media url, we make sure it has a link before sending it to the URLTest needed for URLs without a media_url
-    if link:
-      test = URLTest(link)
-    else:
-      test = 'false'
-    # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
-    # Added Album Object in case some are audio feeds but they must have a media_type that matches for this
-    if test == 'true' and 'archive.org' not in link:
-      if date:
-        date = Datetime.ParseDate(date)
-      if media_type and 'audio' in media_type:
-        # Safest to use an album object and not a track object here since not sure what we may encounter
-        # Audio for Archive.org will give error if you add #Track or use a TrackObject() here
-        oc.add(AlbumObject(
-          url = link, 
-          title = title, 
-          summary = summary, 
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
-          originally_available_at = date
-        ))
+
+    # theplatform stream links are SMIL, despite being referenced in RSS as the underlying mediatype
+    if media_url and 'link.theplatform.com' in media_url:
+      smil = XML.ElementFromURL(media_url)
+      try:
+        media_url = smil.xpath('//smil:video/@src', namespaces=NAMESPACE_SMIL)[0]
+      except Exception as e:
+        Log("Found theplatform.com link, but couldn't resolve stream: " + str(e))
+        media_url = None
+
+    
+    # If there in not a url service or media_url produced No URL service object and go to next entry
+    if url_test == 'false' and not media_url:
+      Log('The url test failed and returned a value of %s' %url_test)
+      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", thumb=R('no-feed.png'), summary='There is not a Plex URL service or link to media files for %s.' %title))
+      continue
+    
+    else: 
+    # Collect all other optionnal data for item
+      try:
+        date = item.xpath('./pubDate//text()')[0]
+      except:
+        date = None
+      try:
+        item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+      except:
+        item_thumb = None
+      try:
+        # The description actually contains pubdate, link with thumb and description so we need to break it up
+        epDesc = item.xpath('./description//text()')[0]
+        (summary, new_thumb) = SummaryFind(epDesc)
+        if new_thumb:
+          item_thumb = new_thumb
+      except:
+        summary = None
+      # Not having a value for the summary causes issues
+      if not summary:
+        summary = 'no summary'
+      if item_thumb:
+        thumb = item_thumb
+
+      if url_test == 'true':
+        # Build Video or Audio Object for those with a URL service
+        # The date that go to the CreateObject() have to be processed separately so only process those with a URL service here
+        if date:
+          date = Datetime.ParseDate(date)
+        if media_type and 'audio' in media_type:
+          # I was told it was safest to use an album object and not a track object here since not sure what we may encounter
+          # But was getting errors with an AlbumObject so using TrackObject instead
+          # NEED TO TEST THIS WITH AN AUDIO SITE THAT HAS A URL SERVICE
+          oc.add(TrackObject(
+            url = link, 
+            title = title, 
+            summary = summary, 
+            thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+            originally_available_at = date
+          ))
+        else:
+          oc.add(VideoClipObject(
+            url = link, 
+            title = title, 
+            summary = summary, 
+            thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+            originally_available_at = date
+          ))
+        oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
       else:
-        oc.add(VideoClipObject(
-          url = link, 
-          title = title, 
-          summary = summary, 
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
-          originally_available_at = date
-        ))
-      oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-    else:
-      if media_url:
+        # Send those that have a media_url to the CreateObject function to build the media objects
         oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
-      else:
-        Log('The url test failed and returned a value of %s' %test)
-        oc.add(DirectoryObject(key=Callback(URLNoService, title=title), title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or link to media files for %s.' %title))
 
-
-  # Adding this below causes an error with the Directory object above
-  #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-  
+  # Additional directories for deleting a show and adding images for a show
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=show_title, show_type=show_type), title="Delete %s" %show_title, summary="Click here to delete this show"))
-
   oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type=show_type, url=url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
@@ -356,7 +397,7 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
   elif local_url.endswith('.mkv'):
     container = Container.MKV
   else:
-    Log('no container type found')
+    Log('container type is None')
     container = ''
 
   if 'audio' in media_type:
@@ -368,7 +409,7 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
     Log('This media type is not supported')
     new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb=R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
-
+    
   new_object = object_type(
     key = Callback(CreateObject, url=url, media_type=media_type, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
