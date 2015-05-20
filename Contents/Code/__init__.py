@@ -161,7 +161,7 @@ def OtherSections(title, show_type):
         # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
         json_url = YouTubeJSON(url)
         if json_url != 'false':
-          oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
+          oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title=title, url=url, json_url=json_url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
         else:
           oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL - %s" %title, summary="The URL entered in the database was incorrect."))
       elif show_type == 'yahoo':
@@ -513,7 +513,7 @@ def ShowYahoo(title, url, thumb, start=0):
   else:
     return oc
 ###################################################################################################################
-# This is a function to produce the JSON url needed for the YouTubeFeed function
+# This is a function to produce the JSON url needed for the YouTube Playlist and Feed functions
 # It returns to the OtherSectiona so it can also serve as added url validation
 @route(PREFIX + '/youtubejson')
 def YouTubeJSON(url):
@@ -529,16 +529,82 @@ def YouTubeJSON(url):
       user_name = url.split('user/') [1]
       # need to change all letters to lowercase
       user_name = user_name.lower()
-      json_url = YouTubeFeedURL + 'users/' + user_name + '/uploads'
+      json_url = YouTubeFeedURL + 'users/' + user_name + '/playlists'
     elif '/channel/' in url:
       channel_id = url.split('/channel/') [1]
-      json_url = YouTubeFeedURL + 'users/' + channel_id + '/uploads'
+      json_url = YouTubeFeedURL + 'users/' + channel_id + '/playlists'
     else:
       json_url = 'false'
   #Log('the value of json_url is %s' %json_url)
   return json_url
 ####################################################################################################################
-# Currently this function will work with playlist or user upload feeds and produces results after the JSON url is constructed
+# This function will create a list of playlist for user or channels
+# Using API v2 which currently works for playlists
+@route(PREFIX + '/playlistyoutube', page=int)
+def PlaylistYouTube(title, url, json_url, thumb='', page = 1):
+
+  oc = ObjectContainer(title2=title, replace_parent=(page > 1))
+  show_title = title
+  show_url = url
+  # If it is already a playlist, then we just send it on to produces videos
+  if 'PL' in url:
+    oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)))
+  # Otherwise we produce a list of playlists for the channel or user
+  else:
+    local_url = json_url + '?v=2&alt=json'
+    local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
+    local_url += '&max-results=' + str(MAXRESULTS)
+
+    try:
+      data = JSON.ObjectFromURL(local_url)
+    except:
+      return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
+
+    if data['feed'].has_key('entry'):
+      for playlist in data['feed']['entry']:
+        pl_url = None
+        for pl_links in playlist['link']:
+          if pl_links['type'] == 'text/html':
+            pl_url = pl_links['href']
+            break
+        pl_json_url = playlist['content']['src'].split('?')[0]
+
+        pl_title = playlist['title']['$t']
+        thumb = playlist['media$group']['media$thumbnail'][0]['url']
+        summary = None
+        try: summary = playlist['summary']['$t']
+        except: pass
+
+        oc.add(DirectoryObject(key=Callback(ShowYouTube, title=pl_title, url=url, json_url=pl_json_url),
+          title = pl_title,
+          summary = summary,
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)
+        ))
+
+      # Check to see if there are any further results available.
+      if data['feed'].has_key('openSearch$totalResults'):
+        total_results = int(data['feed']['openSearch$totalResults']['$t'])
+        items_per_page = int(data['feed']['openSearch$itemsPerPage']['$t'])
+        start_index = int(data['feed']['openSearch$startIndex']['$t'])
+
+        if (start_index + items_per_page) < total_results:
+          oc.add(NextPageObject(
+            key = Callback(PlaylistYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
+            title = L("Next Page ...")
+          ))
+
+  if page < 2:
+    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="Delete YouTube Show", summary="Click here to delete this YouTube Show", thumb=R(ICON)))
+    oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='youtube', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
+
+  if len(oc) < 1:
+    return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
+  else:
+    return oc
+
+####################################################################################################################
+# This function will work with playlist and produces results after the JSON url is constructed
+# Using API v2 which currently works for playlists
 @route(PREFIX + '/showyoutube', page=int)
 def ShowYouTube(title, url, json_url, page = 1):
 
@@ -553,6 +619,7 @@ def ShowYouTube(title, url, json_url, page = 1):
   local_url = json_url + '?v=2&alt=json'
   local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
   local_url += '&max-results=' + str(MAXRESULTS)
+  #Log('the value of local_url is %s' %local_url)
 
   try:
     data = JSON.ObjectFromURL(local_url)
@@ -626,10 +693,6 @@ def ShowYouTube(title, url, json_url, page = 1):
           key = Callback(ShowYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
           title = L("Next Page ...")
         ))
-
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="Delete YouTube Show", summary="Click here to delete this YouTube Show", thumb=R(ICON)))
-
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='youtube', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
 
   if len(oc) < 1:
     return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
@@ -802,7 +865,7 @@ def DeleteShow(url, show_type, title):
 # This is a function to add a show to the json data file.  Wanted to make a true add but running into errors based on 
 # the structure of my dictionary, so we created 50 items and just taking the first empty show and filling it with
 # the show info
-# NEED TO ADD A WORNING ABOUT CHANNELS IN YOUTUBE
+# NEED TO ADD A WARNING ABOUT CHANNELS IN YOUTUBE
 @route(PREFIX + '/addshow')
 def AddShow(show_type, query, url=''):
 
@@ -914,5 +977,3 @@ def URLFix(url, show_type):
 @route(PREFIX + '/addshowdialog')
 def AddShowDialog():
   return ObjectContainer(header="Add Show", message='To add a show, paste or type the url into the Search Box at the top of the page')
-
-
