@@ -14,12 +14,12 @@ NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
 NAMESPACE_SMIL = {'smil': 'http://www.w3.org/2005/SMIL21/Language'}
 
-YouTubeFeedURL = 'https://gdata.youtube.com/feeds/api/'
+YouTubeFeedURL = 'https://www.youtube.com/feeds/videos.xml?'
 YahooURL = 'http://screen.yahoo.com/'
 YahooShowJSON = 'http://screen.yahoo.com/ajax/resource/channel/id/%s;count=20;start='
 YahooShowURL = 'http://screen.yahoo.com/%s/%s.html'
 BLIP_URL = 'http://blip.tv/pr/show_get_full_episode_list?users_id=%s&lite=0&page=%s'
-YouTube_URL = 'http://www.youtube.com/'
+YouTube_URL = 'http://www.youtube.com'
 BLIPTV_URL = 'http://blip.tv/'
 VIMEO_URL = 'http://vimeo.com/'
 
@@ -157,13 +157,12 @@ def OtherSections(title, show_type):
           pass
       # here we have an if based on type
       if show_type == 'youtube':
-        # below we create the url for YouTube to pull the JSON feed. We pull it here for additional error checking
-        # The function returns false if the url does not include keywords noting accepted feeds, so if it returns false, the url is invalid
-        json_url = YouTubeJSON(url)
-        if json_url != 'false':
-          oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title=title, url=url, json_url=json_url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
+        # If it is already a playlist, then we just send it on to produces videos
+        if '=PL' in url:
+          oc.add(DirectoryObject(key=Callback(YouTubePLVideos, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)))
+        # Otherwise we see if there are playlists for the channel or user and any shows
         else:
-          oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='youtube'),title="Invalid URL - %s" %title, summary="The URL entered in the database was incorrect."))
+          oc.add(DirectoryObject(key=Callback(YouTubePLSections, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
       elif show_type == 'yahoo':
         oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
       elif show_type == 'blip':
@@ -513,213 +512,112 @@ def ShowYahoo(title, url, thumb, start=0):
   else:
     return oc
 ###################################################################################################################
-# This is a function to produce the JSON url needed for the YouTube Playlist and Feed functions
-# It returns to the OtherSectiona so it can also serve as added url validation
-@route(PREFIX + '/youtubejson')
-def YouTubeJSON(url):
-  #Log('the value of url entering the YOUTUBEJSON function is %s' %url)
-  if 'PL' in url:
-    playlist = 'PL' + url.split('PL')[1]
-    json_url = YouTubeFeedURL + 'playlists/' + playlist
-  else:
-    if 'user/' in url:
-      if '?' in url: 
-        # Some may have a quesiton mark after the username Ex. http://www.youtube.com/user/NewarkTimesWeddings?feature=watch
-        url = url.split('?')[0]
-      user_name = url.split('user/') [1]
-      # need to change all letters to lowercase
-      user_name = user_name.lower()
-      json_url = YouTubeFeedURL + 'users/' + user_name + '/playlists'
-    elif '/channel/' in url:
-      channel_id = url.split('/channel/') [1]
-      json_url = YouTubeFeedURL + 'users/' + channel_id + '/playlists'
-    else:
-      json_url = 'false'
-  #Log('the value of json_url is %s' %json_url)
-  return json_url
-####################################################################################################################
-# This function will create a list of playlist for user or channels
-# Using API v2 which currently works for playlists
-@route(PREFIX + '/playlistyoutube', page=int)
-def PlaylistYouTube(title, url, json_url, thumb='', page = 1):
-
-  oc = ObjectContainer(title2=title, replace_parent=(page > 1))
+# This is a function to produce the sections for the YouTube playlist function
+@route(PREFIX + '/youtubeplsections')
+def YouTubePLSections(url, title, thumb):
+  oc = ObjectContainer(title2=title)
   show_title = title
   show_url = url
-  # If it is already a playlist, then we just send it on to produces videos
-  if 'PL' in url:
-    oc.add(DirectoryObject(key=Callback(ShowYouTube, title=title, url=url, json_url=json_url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)))
-  # Otherwise we produce a list of playlists for the channel or user
-  else:
-    local_url = json_url + '?v=2&alt=json'
-    local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
-    local_url += '&max-results=' + str(MAXRESULTS)
-
-    try:
-      data = JSON.ObjectFromURL(local_url)
-    except:
-      return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
-
-    if data['feed'].has_key('entry'):
-      for playlist in data['feed']['entry']:
-        pl_url = None
-        for pl_links in playlist['link']:
-          if pl_links['type'] == 'text/html':
-            pl_url = pl_links['href']
-            break
-        pl_json_url = playlist['content']['src'].split('?')[0]
-
-        pl_title = playlist['title']['$t']
-        thumb = playlist['media$group']['media$thumbnail'][0]['url']
-        summary = None
-        try: summary = playlist['summary']['$t']
-        except: pass
-
-        oc.add(DirectoryObject(key=Callback(ShowYouTube, title=pl_title, url=url, json_url=pl_json_url),
-          title = pl_title,
-          summary = summary,
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)
-        ))
-
-      # Check to see if there are any further results available.
-      if data['feed'].has_key('openSearch$totalResults'):
-        total_results = int(data['feed']['openSearch$totalResults']['$t'])
-        items_per_page = int(data['feed']['openSearch$itemsPerPage']['$t'])
-        start_index = int(data['feed']['openSearch$startIndex']['$t'])
-
-        if (start_index + items_per_page) < total_results:
-          oc.add(NextPageObject(
-            key = Callback(PlaylistYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
-            title = L("Next Page ...")
-          ))
-
-  if page < 2:
-    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="Delete YouTube Show", summary="Click here to delete this YouTube Show", thumb=R(ICON)))
-    oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='youtube', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
-
-  if len(oc) < 1:
-    return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
-  else:
-    return oc
-
-####################################################################################################################
-# This function will work with playlist and produces results after the JSON url is constructed
-# Using API v2 which currently works for playlists
-@route(PREFIX + '/showyoutube', page=int)
-def ShowYouTube(title, url, json_url, page = 1):
-
-  oc = ObjectContainer(title2=title, replace_parent=(page > 1))
-  show_title = title
-  show_url = url
-  # show_url is needed for the alternative HTML method in the comments below
-
-####################################################################################################################
-# Just stole this below from Youtube's ParseFeed function and changed rawfeed to data, also added CheckRejectedEntry
-####################################################################################################################
-  local_url = json_url + '?v=2&alt=json'
-  local_url += '&start-index=' + str((page - 1) * MAXRESULTS + 1)
-  local_url += '&max-results=' + str(MAXRESULTS)
-  #Log('the value of local_url is %s' %local_url)
 
   try:
-    data = JSON.ObjectFromURL(local_url)
+    data = HTML.ElementFromURL(url)
   except:
     return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
 
-  if data['feed'].has_key('entry'):
-    for video in data['feed']['entry']:
-      # If the video has been rejected, ignore it.
-      if CheckRejectedEntry(video):
-        continue
+  try: playlists = data.xpath('.//ul[@id="channel-navigation-menu"]/li//span[text()="Playlists"]/ancestor::a/@href')[0]
+  except: playlists = None
+  if playlists:
+    playlists = playlists + '?sort=dd&view=1'
+    oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title="Playlists", url=YouTube_URL + playlists), title="Playlists", thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)))
 
-      # Determine the actual HTML URL associated with the view. This will allow us to simply redirect
-      # to the associated URL Service, when attempting to play the content.
-      video_url = None
-      for video_links in video['link']:
-        if video_links['type'] == 'text/html':
-          video_url = video_links['href']
-          break
+  try: shows = data.xpath('.//div[@class="feed-item-main-content"]//h2[@class="branded-page-module-title"]//span[text()="All Shows"]/ancestor::a/@href')[0]
+  except: shows = None
+  if shows:
+    oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title="Shows", url=YouTube_URL + shows), title="Shows", thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON)))
 
-      # This is very unlikely to occur, but we should at least log.
-      if video_url is None:
-        Log('Found video that had no URL')
-        continue
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="Delete YouTube Show", summary="Click here to delete this YouTube Show", thumb=R(ICON)))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='youtube', url=show_url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
 
-      # As well as the actual video URL, we need the associate id. This is required if the user wants
-      # to see related content.
-      video_id = None
-      try: video_id = RE_VIDEO_ID.search(video_url).group(1).split('&')[0]
-      except: pass
+  return oc
+    
+####################################################################################################################
+# This function will create a list of playlists from the website
+@route(PREFIX + '/playlistyoutube', page=int)
+def PlaylistYouTube(title, url, json_url='', page = 1):
 
-      video_title = video['media$group']['media$title']['$t']
-      thumb = video['media$group']['media$thumbnail'][0]['url']
-      duration = int(video['media$group']['yt$duration']['seconds']) * 1000
+  oc = ObjectContainer(title2=title)
+  # If it is a second page then we use the json we pulled from the first pag
+  if json_url:
+    try:
+      json = JSON.ObjectFromURL(json_url)
+      content = json['content_html']
+    except:
+      return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
+  else:
+    try: content = HTTP.Request(url, cacheTime=CACHE_1HOUR).content
+    except:
+      return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
 
-      summary = None
-      try: summary = video['media$group']['media$description']['$t']
-      except: pass
+  data = HTML.ElementFromString(content)
 
-      # [Optional]
-      rating = None
-      try: rating = float(video['gd$rating']['average']) * 2
-      except: pass
+  for playlist in data.xpath('//li[contains(@class, "grid-item")]'):
+    pl_title = playlist.xpath('.//div[@class="yt-lockup-content"]/h3/a/@title')[0]
+    pl_url = playlist.xpath('.//div[@class="yt-lockup-content"]/h3/a/@href')[0]
+    pl_url = YouTube_URL + pl_url
+    pl_thumb = playlist.xpath('.//img/@src')[0]
+    pl_thumb = 'http:' + pl_thumb
+    pl_desc = playlist.xpath('.//span[@class="formatted-video-count-label"]//text()')[0]
+    oc.add(DirectoryObject(key=Callback(YouTubePLVideos, title=pl_title, url=pl_url),
+      title = pl_title,
+      summary = pl_desc,
+      thumb = Resource.ContentsOfURLWithFallback(url=pl_thumb, fallback=ICON)
+    ))
 
-      # [Optional]
-      date = None
-      try: date = Datetime.ParseDate(video['published']['$t'].split('T')[0])
-      except:
-        try: date = Datetime.ParseDate(video['updated']['$t'].split('T')[0])
-        except: pass
-
-      oc.add(VideoClipObject(
-        url = video_url,
-        title = video_title,
-        summary = summary,
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON),
-        originally_available_at = date,
-        rating = rating
-      ))
-
-    oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
-    # Check to see if there are any futher results available.
-    if data['feed'].has_key('openSearch$totalResults'):
-      total_results = int(data['feed']['openSearch$totalResults']['$t'])
-      items_per_page = int(data['feed']['openSearch$itemsPerPage']['$t'])
-      start_index = int(data['feed']['openSearch$startIndex']['$t'])
-
-      if (start_index + items_per_page) < total_results:
-        oc.add(NextPageObject(
-          key = Callback(ShowYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
-          title = L("Next Page ...")
-        ))
+  # Check to see if there are any further results available.
+  try: more_videos = data.xpath('.//button[contains(@class, "load-more-button")]/@data-uix-load-more-href')[0]
+  except: more_videos = None
+  if more_videos:
+    page = 2
+    json_url = 'https://www.youtube.com' + more_videos
+    oc.add(NextPageObject(
+      key = Callback(PlaylistYouTube, title = title, url = url, json_url = json_url, page = page + 1), 
+      title = L("Next Page ...")
+    ))
 
   if len(oc) < 1:
     return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
   else:
     return oc
 
-#####################################################################################################################
-# This is a side function for YouTube Playlist
-@route(PREFIX + '/checkrejectedentry')
-def CheckRejectedEntry(entry):
+####################################################################################################################
+# This function will produce results from the XML url
+@route(PREFIX + '/youtubeplvideos')
+def YouTubePLVideos(title, url):
 
-  try:
-    status_name = entry['app$control']['yt$state']['name']
+  oc = ObjectContainer(title2=title)
+  try: data = HTML.ElementFromURL(url)
+  except: return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
 
-    if status_name in ['deleted', 'rejected', 'failed']:
-      return True
+  for video in data.xpath('//table[@id="pl-video-table"]//tr'):
+    video_url = video.xpath('.//a/@href')[0].split('&')[0]
+    if not video_url.startswith('http://'):
+      video_url = YouTube_URL + video_url
+    video_title = video.xpath('./@data-title')[0]
+    thumb = video.xpath('.//img/@data-thumb')[0]
+    thumb = 'http:' + thumb
+    duration = Datetime.MillisecondsFromString(video.xpath('.//div[@class="timestamp"]/span//text()')[0])
 
-    if status_name == 'restricted':
-      status_reason = entry['app$control']['yt$state']['reasonCode']
+    oc.add(VideoClipObject(
+      url = video_url,
+      title = video_title,
+      thumb=Resource.ContentsOfURLWithFallback(url=thumb, fallback=ICON),
+      duration = duration
+    ))
 
-      if status_reason in ['private', 'requesterRegion']:
-        return True
-
-  except:
-    pass
-
-  return False
+  if len(oc) < 1:
+    return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
+  else:
+    return oc
 
 #####################################################################################################################
 # This pulls videos for shows hosted at BlipTV
