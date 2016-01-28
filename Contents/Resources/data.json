@@ -1,5 +1,5 @@
 [
-{1 : {type: "rss", url: "http://www.lstudio.com/rss/lstudiorss-web-therapy.xml", thumb: "http://www.lstudio.com/img/WebTherapy_Series_197x111.jpg"}},
+{1 : {type: "rss", url: "https://archive.org/services/collection-rss.php?collection=computersandtechvideos", thumb: ""}},
 {2 : {type: "rss", url: "http://www.cwtv.com/feed/video/xml", thumb: ""}},
 {3 : {type: "youtube", url: "http://www.youtube.com/user/NewarkTimesWeddings", thumb: ""}},
 {4 : {type: "youtube", url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G", thumb: ""}},
