@@ -5,9 +5,7 @@ ICON     = 'icon-default.png'
 
 RSS_ICON = 'rss-feed-icon.png'
 YOUTUBE_ICON = 'youtube-icon.png'
-YAHOO_ICON = 'yahoo-icon.png'
 VIMEO_ICON = 'vimeo-icon.png'
-BLIPTV_ICON = 'bliptv-icon.png'
 
 SHOW_DATA = 'data.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
@@ -15,19 +13,10 @@ NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
 NAMESPACE_SMIL = {'smil': 'http://www.w3.org/2005/SMIL21/Language'}
 
 YouTubeFeedURL = 'https://www.youtube.com/feeds/videos.xml?'
-YahooURL = 'http://screen.yahoo.com/'
-YahooShowJSON = 'http://screen.yahoo.com/ajax/resource/channel/id/%s;count=20;start='
-YahooShowURL = 'http://screen.yahoo.com/%s/%s.html'
-BLIP_URL = 'http://blip.tv/pr/show_get_full_episode_list?users_id=%s&lite=0&page=%s'
 YouTube_URL = 'http://www.youtube.com'
-BLIPTV_URL = 'http://blip.tv/'
 VIMEO_URL = 'http://vimeo.com/'
 
 http = 'http:'
-MAXRESULTS = 50
-# Season and Episode for Yahoo Screen are always in the title and can be in brackets  
-RE_SEASON  = Regex('(SEASON|Season|\[S) ?(\d+)')
-RE_EPISODE  = Regex('(Episode|Ep.) ?(\d+)')
 
 ###################################################################################################
 # Set up containers for all possible objects
@@ -43,7 +32,7 @@ def Start():
   VideoClipObject.thumb = R(ICON)
   VideoClipObject.art = R(ART)
 
-  #HTTP.CacheTime = CACHE_1DAY 
+  HTTP.CacheTime = CACHE_1HOUR 
 
   #This Checks to see if there is a list of shows
   if Dict['MyShows'] == None:
@@ -63,11 +52,6 @@ def MainMenu():
 
   oc = ObjectContainer()
   
-  json_data = Resource.Load(SHOW_DATA)
-  Dict["shows"] = JSON.ObjectFromString(json_data)
-  
-  oc.add(DirectoryObject(key=Callback(OtherSections, title="Yahoo Screen Original Shows", show_type='yahoo'), title="Yahoo Screen Original Shows", thumb=R(YAHOO_ICON)))
-  oc.add(DirectoryObject(key=Callback(OtherSections, title="Blip TV Shows", show_type='blip'), title="Blip TV Shows", thumb=R(BLIPTV_ICON)))
   oc.add(DirectoryObject(key=Callback(OtherSections, title="Vimeo Shows", show_type='vimeo'), title="Vimeo Shows", thumb=R(VIMEO_ICON)))
   oc.add(DirectoryObject(key=Callback(OtherSections, title="YouTube Shows", show_type='youtube'), title="YouTube Shows", thumb=R(YOUTUBE_ICON)))
   oc.add(DirectoryObject(key=Callback(SectionRSS, title="RSS Feeds"), title="RSS Feeds", thumb=R(RSS_ICON)))
@@ -163,10 +147,7 @@ def OtherSections(title, show_type):
         # Otherwise we see if there are playlists for the channel or user and any shows
         else:
           oc.add(DirectoryObject(key=Callback(YouTubePLSections, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
-      elif show_type == 'yahoo':
-        oc.add(DirectoryObject(key=Callback(ShowYahoo, title=title, url=url, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
-      elif show_type == 'blip':
-        oc.add(DirectoryObject(key=Callback(ShowBlip, title=title, url=url), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
+      # This directs vimeo URLs to the RSS feed section
       else:
         oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, thumb=Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), summary=description))
     else:
@@ -433,85 +414,6 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
   else:
     return new_object
 ###################################################################################################################
-# This is a function to produce the JSON url needed for the Yahoo function
-@route(PREFIX + '/yahoojson')
-def YahooJSON(url):
-  # This pull show name from urls
-  url = url.split(YahooURL)[1]
-  if url.endswith('/'):
-    url = url.split('/')[0]
-  json_url = YahooShowJSON %(url)
-  return json_url
-######################################################################################################
-# This is a JSON to produce videos on Yahoo
-@route(PREFIX + '/showyahoo', start=int)
-def ShowYahoo(title, url, thumb, start=0):
-
-  oc = ObjectContainer(title2=title)
-  show_title = title
-  local_url = YahooJSON(url) + str(start)
-  try:
-    data = JSON.ObjectFromURL(local_url)
-  except:
-    return ObjectContainer(header=L('Error'), message=L('This feed does not contain any video'))
-
-  x=0
-  for video in data['videos']:
-    x=x+1 
-    url_show = video['channel_url_alias']
-    url_name = video['url_alias'] 
-    video_url = YahooShowURL %(url_show, url_name)
-    duration = int(video['duration']) * 1000
-    date = Datetime.ParseDate(video['publish_time'])
-    summary = video['description']
-    title = video['title'] 
-    # check for episode and season in title
-    try: season = int(RE_SEASON.search(title).group(2))
-    except: season = 0
-    try: episode = int(RE_EPISODE.search(title).group(2))
-    except: episode = 0
-    if '[' in title:
-      title = title.split('[')[0]
-    try:
-      vid_thumb = video['thumbnails'][1]['url']
-    except:
-      vid_thumb = R(ICON)
-    # May need this for excluding videos that may not work with URL service
-    #provider_name = video['provider_name']
-
-    if episode or season:
-      oc.add(EpisodeObject(
-        url = video_url, 
-        title = title, 
-        thumb = Resource.ContentsOfURLWithFallback(vid_thumb),
-        index = episode,
-        season = season,
-        summary = summary,
-        duration = duration,
-        originally_available_at = date))
-    else:
-      oc.add(VideoClipObject(
-        url = video_url, 
-        title = title, 
-        thumb = Resource.ContentsOfURLWithFallback(vid_thumb),
-        summary = summary,
-        duration = duration,
-        originally_available_at = date))
-
-# Paging code. Each page pulls 20 results use x counter for need of next page
-  if x >= 20:
-    start = start + 20
-    oc.add(NextPageObject(key = Callback(ShowYahoo, title=show_title, url=url, thumb=thumb, start=start), title = L("Next Page ...")))
-  # add Delete Show and Add Image directory to last page
-  else:
-    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='yahoo', title=show_title), title="Delete Yahoo Show", summary="Click here to delete this Yahoo Show", thumb=R(ICON)))    
-    oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='yahoo', url=url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
-          
-  if len(oc) < 1:
-    return ObjectContainer(header="Empty", message="This directory appears to be empty or contains videos that are not compatible with this channel.")      
-  else:
-    return oc
-###################################################################################################################
 # This is a function to produce the sections for the YouTube playlist function
 @route(PREFIX + '/youtubeplsections')
 def YouTubePLSections(url, title, thumb):
@@ -616,63 +518,6 @@ def YouTubePLVideos(title, url):
 
   if len(oc) < 1:
     return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
-  else:
-    return oc
-
-#####################################################################################################################
-# This pulls videos for shows hosted at BlipTV
-@route(PREFIX + '/showblip', page=int)
-def ShowBlip(title, url, page=1, user_id=''):
-
-  oc = ObjectContainer(title2=title)
-  show_title = title
-  if not user_id:
-    # Need user id from show url to produce carousel
-    # pulling page info that was used in show pull above, so a one day cache
-    html = HTML.ElementFromURL(url, cacheTime = CACHE_1DAY)
-    # Put in a try except error message here to make sure URL in in proper format
-    try:
-      user_id = html.xpath('//div[@id="PageInfo"]//@data-users-id')[0]
-    except:
-      return ObjectContainer(header=L('Error'), message=L('Unable to access video data for this show. Reenter URL and try again'))
-
-  data_url = BLIP_URL %(user_id, str(page))
-  data = HTML.ElementFromURL(data_url)
-
-  for video in data.xpath('//div[@class="EpisodeList"]/ul/li/a'):
-    ep_url = video.xpath('./meta[@itemprop="url"]//@content')[0]
-    thumb = video.xpath('./span[@class="Thumbnail"]/img//@src')[0]
-    title = video.xpath('./span[@class="Title"]//text()')[0].strip()
-    description = video.xpath('./span[@class="Description"]//text()')[0].strip()
-    date = Datetime.ParseDate(video.xpath('./span[@class="ReleaseDate"]//text()')[0].strip())
-    try: duration = Datetime.MillisecondsFromString(video.xpath('./span[@class="Runtime"]//text()')[0].strip())
-    except: duration = 0
-				
-    oc.add(VideoClipObject(
-      url = ep_url, 
-      title = title,
-      summary = description,
-      originally_available_at = date,
-      duration = duration,
-      thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=BLIPTV_ICON)))
-
-  oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
-  # Paging
-  # get the total number of pages
-  total_pages = int(data.xpath('//div[@class="Pagination"]/span[@class="LastPage"]//text()')[0])
-  if total_pages > page:
-    oc.add(NextPageObject(key = Callback(ShowBlip, title=show_title, url=url, page=page+1, user_id=user_id), title = L("Next Page ...")))
-  # add Delete Show and Add Image directory to last page
-  else:
-    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='blip', title=title), title="Delete Blip TV Show", summary="Click here to delete this Blip TV Show", thumb=R(ICON)))    
-    oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type='blip', url=url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this show"))
-    if Client.Platform in ('Safari', 'Firefox', 'Chrome'):
-      oc.add(DirectoryObject(key=Callback(AddShowDialog, title="Add A BlipTV show"), title="Add A BlipTV show", summary='To add a show, paste or type the url into the Search Box at the top of the page'))
-
-  if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no videos to display for this show right now.")
   else:
     return oc
 
@@ -859,15 +704,8 @@ def URLFix(url, show_type):
       url = YouTube_URL + 'user/' + url
   else:
     url = url.lower()
-    if show_type == 'yahoo':
-      url = url.replace(' ', '-')
-      url = YahooURL + url
-    elif show_type == 'blip':
-      url = url.replace(' ', '')
-      url = BLIPTV_URL + url
-    else:
-      url = url.replace(' ', '')
-      url = VIMEO_URL + url
+    url = url.replace(' ', '')
+    url = VIMEO_URL + url
   #Log('the value exiting URLFix function of url is %s' %url)
   return url
 #############################################################################################################################
