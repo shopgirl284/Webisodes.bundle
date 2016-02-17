@@ -8,11 +8,5 @@
         <string>*</string>
         <key>PlexFrameworkVersion</key>
         <string>2</string>
-		<!-- The following are optional keys and those I have asked are not sure if there is any benefit to adding them -->		
-		<!-- Also, you should delete any unused or empty keys in your plist file -->		
-        <key>PlexVideoCodec</key>
-        <array>
-                <string>H.264</string>
-        </array>
 </dict>
 </plist>
