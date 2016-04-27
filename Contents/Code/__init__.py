@@ -27,7 +27,6 @@ def Start():
   ObjectContainer.art = R(ART)
 
   DirectoryObject.thumb = R(ICON)
-  EpisodeObject.thumb = R(ICON)
   VideoClipObject.thumb = R(ICON)
 
   HTTP.CacheTime = CACHE_1HOUR 
@@ -65,22 +64,19 @@ def SectionRSS(title):
       url = show["url"]
       thumb = show["thumb"]
       try:
-        rss_page = XML.ElementFromURL(url, cacheTime = CACHE_1DAY)
+        rss_page = XML.ElementFromURL(url)
         title = rss_page.xpath("//channel/title//text()")[0]
       except:
-        # Since this function pulls many urls, rather than return a pop-up if there is an error, we create an error directory
-        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='rss'), title="Invalid or Incompatible URL", summary="The URL for this RSS feed is either incorrect or not in the proper format for this channel."))
+        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type='rss'), title="Invalid or Incompatible URL", summary="The URL was either entered incorrectly or is incompatible with this channel."))
         continue
+      # sometimes the description is blank and it gives an error, so we added this as a try
+      try: description = rss_page.xpath("//channel/description//text()")[0]
+      except: description = ''
+      if not thumb:
+        try: thumb = rss_page.xpath("//channel/image/url//text()")[0]
+        except: thumb = R(RSS_ICON)
+      oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type='rss', thumb=thumb), title=title, summary=description, thumb=thumb))
         
-        # sometimes the description is blank and it gives an error, so we added this as a try
-        try: description = rss_page.xpath("//channel/description//text()")[0]
-        except: description = ' '
-        if not thumb:
-          try: thumb = rss_page.xpath("//channel/image/url//text()")[0]
-          except: thumb = R(RSS_ICON)
-
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type='rss', thumb=thumb), title=title, summary=description, thumb=thumb))
-
   oc.objects.sort(key = lambda obj: obj.title)
 
   oc.add(InputDirectoryObject(key=Callback(AddShow, show_type='rss'), title="Add A RSS Feed", summary="Click here to add a new RSS Feed", thumb=R(ICON), prompt="Enter the full URL (including http://) for the RSS Feed you would like to add"))
@@ -166,7 +162,7 @@ def SectionTools (title):
   oc = ObjectContainer(title2=title)
   if Client.Platform == 'Roku':
     oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", thumb=R(ICON), summary="Click here to see special instructions necessary for Roku Users to add shows to this channel"))
-  if Client.Platform in ('Chrome', 'Firefox', 'Edge', 'Safari'):
+  if Client.Platform in ('Chrome', 'Firefox', 'Edge', 'Safari', 'Internet Explorer'):
     oc.add(DirectoryObject(key=Callback(PlexWebUsers, title="Special Instructions for Plex Web Users"), title="Special Instructions for Plex Web Users", thumb=R(ICON), summary="Click here to see special instructions for Plex Web Users to add shows to this channel"))
   oc.add(DirectoryObject(key=Callback(ResetShows, title="Clear All Shows"), title="Clear All Shows", thumb=R(ICON), summary="Click here to remove all shows from this channel"))
   oc.add(DirectoryObject(key=Callback(LoadData), title="Replace Show List with JSON", thumb=R(ICON), summary="Click here to replace your show list with those in the data.json file"))
@@ -178,13 +174,13 @@ def SectionTools (title):
 # this is special instructions for Roku users
 @route(PREFIX + '/rokuusers')
 def RokuUsers (title):
-  return ObjectContainer(header="Special Instructions for Roku Users", message="Roku users must use v4.1.1 or later to add shows. Remoku (www.remoku.tv) makes it easy to add new shows by cutting and pasting URLs from your browser.")
+  return ObjectContainer(header="Special Instructions for Roku Users", message="Remoku (www.remoku.tv) makes it easy to add new shows by cutting and pasting URLs from your browser.")
 
 ########################################################################################################################
 # this is special instructions for Plex Web users
 @route(PREFIX + '/plexwebusers')
 def PlexWebUsers (title):
-  return ObjectContainer(header="Special Instructions for Plex Web Users", message="Plex Web users can add new shows by pasing or typeing the URLs in the Search Box at the top of the page while in the show section for that show type. A pop-up message will confirm if your new show has been added. New shows may not be visible for 24 hours, based on your browser cache settings.")
+  return ObjectContainer(header="Special Instructions for Plex Web Users", message="Plex Web users can add new shows by pasting or typing the URLs in the Search Box at the top of the page while in the show section for that show type. A pop-up message will confirm if your new show has been added. New shows may not be visible for 24 hours, based on your browser cache settings.")
 
 #############################################################################################################################
 # The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
@@ -194,31 +190,26 @@ def ResetShows(title):
   return ObjectContainer(header="Cleared", message='All shows have been removed from this channel')
 
 ########################################################################################################################
-# This function produces videos for RSS Feed.
-# TO ADD AUDIO SUPPORT FOR THOSE WITH URL SERVICES ADD A TRY/EXCEPT FOR 
-# rss_type = item.xpath('./media:content//@type', namespaces=NAMESPACES2)[0]
+# This is for producing items in a RSS Feeds.  We try to make most things optional so it accepts the most feed formats
+# But each feed must have a title, date, and either a link or media_url
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url, show_type, thumb):
 
+# The ProduceRSS try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
   oc = ObjectContainer(title2=title)
-  show_title = title
   feed_title = title
-  show_url = url
   if show_type == 'vimeo':
     rss_url = url + '/videos/rss'
   else:
     rss_url = url
   xml = XML.ElementFromURL(rss_url)
+
   for item in xml.xpath('//item'):
-  
     # All Items must have a title
     title = item.xpath('./title//text()')[0]
-    
     # Try to pull the link for the item
-    try:
-      link = item.xpath('./link//text()')[0]
-    except:
-      link = None
+    try: link = item.xpath('./link//text()')[0]
+    except: link = None
     # The link is not needed since these have a media url, but there may be a feedburner feed that has a Plex URL service
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
@@ -272,6 +263,7 @@ def ShowRSS(title, url, show_type, thumb):
       # If the URL test was positive we do not need a media_url
       media_url = None
       # We do need to try to get a media type though so it will process it with the right player
+      # This should not be necessary it added in the right group but just a extra level of security
       try: media_type = item.xpath('.//enclosure/@type')[0]
       except:
         try: media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
@@ -291,24 +283,18 @@ def ShowRSS(title, url, show_type, thumb):
       except Exception as e:
         Log("Found theplatform.com link, but couldn't resolve stream: " + str(e))
         media_url = None
-
     
     # If there in not a url service or media_url produced No URL service object and go to next entry
     if url_test == 'false' and not media_url:
       Log('The url test failed and returned a value of %s' %url_test)
       oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", thumb=R('no-feed.png'), summary='There is not a Plex URL service or link to media files for %s.' %title))
-      #continue
     
     else: 
-    # Collect all other optionnal data for item
-      try:
-        date = item.xpath('./pubDate//text()')[0]
-      except:
-        date = None
-      try:
-        item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
-      except:
-        item_thumb = None
+    # Collect all other optional data for item
+      try: date = item.xpath('./pubDate//text()')[0]
+      except: date = None
+      try: item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+      except: item_thumb = None
       try:
         # The description actually contains pubdate, link with thumb and description so we need to break it up
         epDesc = item.xpath('./description//text()')[0]
@@ -328,7 +314,8 @@ def ShowRSS(title, url, show_type, thumb):
         # The date that go to the CreateObject() have to be processed separately so only process those with a URL service here
         if date:
           date = Datetime.ParseDate(date)
-        if media_type and 'audio' in media_type:
+        # Changed to reflect webisodes version should only apply if a video in added to the audio section by mistake
+        if show_type == 'audio' or (media_type and 'audio' in media_type):
           # I was told it was safest to use an album object and not a track object here since not sure what we may encounter
           # But was getting errors with an AlbumObject so using TrackObject instead
           # NEED TO TEST THIS WITH AN AUDIO SITE THAT HAS A URL SERVICE
@@ -350,12 +337,13 @@ def ShowRSS(title, url, show_type, thumb):
         oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
       else:
         # Send those that have a media_url to the CreateObject function to build the media objects
-        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
-
+        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary=summary, originally_available_at=date, thumb=thumb))
+   
   # Additional directories for deleting a show and adding images for a show
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=show_title, show_type=show_type), title="Delete %s" %show_title, summary="Click here to delete this show"))
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=show_title, show_type=show_type, url=url), title="Add Image For %s" %show_title, summary="Click here to add an image url for this show", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
-
+  # Moved to top since some feeds can be very long
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
+   
   if len(oc) < 1:
     Log ('still no value for objects')
     return ObjectContainer(header="Empty", message="There are no videos to display for this RSS feed right now.")      
@@ -394,7 +382,7 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
     object_type = VideoClipObject
   else:
     Log('This media type is not supported')
-    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb=R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
+    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
     
   new_object = object_type(
@@ -430,8 +418,8 @@ def YouTubeSections(title, url, thumb=''):
   oc.add(DirectoryObject(key=Callback(YouTubeVideos, title="%s Videos" %title, url=url+'/videos?flow=list'), title="%s Videos" %title, thumb=Resource.ContentsOfURLWithFallback(url=thumb)))
   oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title="%s PlayLists" %title, url=url), title="%s PlayLists" %title, thumb=Resource.ContentsOfURLWithFallback(url=thumb)))
 
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this YouTube Show"))
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, show_type='youtube', url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this YouTube Show"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
 
   return oc
 ####################################################################################################################
@@ -491,7 +479,9 @@ def YouTubeVideos(title, url, json_url='', pl_only=False):
     thumb = video.xpath('.//img/@data-thumb')[0]
     thumb = 'http:' + thumb
     try: duration = Datetime.MillisecondsFromString(video.xpath('.//div[@class="timestamp"]/span//text()')[0])
-    except: duration = Datetime.MillisecondsFromString(video.xpath('.//span[@class="video-time"]//text()')[0])
+    except:
+      try: duration = Datetime.MillisecondsFromString(video.xpath('.//span[@class="video-time"]//text()')[0])
+      except: duration = 0
 
     oc.add(VideoClipObject(
       url = video_url,
@@ -502,8 +492,8 @@ def YouTubeVideos(title, url, json_url='', pl_only=False):
 
   # List deletion and image add options here
   if pl_only:
-    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='youtube', title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this YouTube Show"))
-    oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, show_type='youtube', url=url), title="ADD a CUSTOM IMAGE FOR %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
+    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this YouTube Show"))
+    oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, url=url), title="ADD a CUSTOM IMAGE FOR %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
 
   # Check to see if there are any further results available.
   if more_json:
@@ -560,8 +550,8 @@ def DailyMotionSections(title, url, vid_type, dm_id, thumb):
   oc.add(DirectoryObject(key=Callback(DailyMotionVideo, title="%s Videos" %title, vid_type=vid_type, dm_id=dm_id), title="%s Videos" %title, thumb=thumb))
   oc.add(DirectoryObject(key=Callback(DailyMotionPL, title="%s Playlist" %title, dm_id=dm_id), title="%s Playlist" %title, thumb=thumb))
 
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='dailymotion', title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this Daily Motion Show"))
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, show_type='dailymotion', url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this Daily Motion Show"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
 
   return oc
 #############################################################################################################################
@@ -633,8 +623,8 @@ def DailyMotionVideo(title, vid_type, dm_id, url='', sort="recent", limit=25, pa
     oc.add(NextPageObject(key=Callback(DailyMotionVideo, title=title, vid_type=vid_type, dm_id=dm_id, page=page), title="More..."))
 
   if pl_only:
-    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, show_type='dailymotion', title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this Daily Motion Show"))
-    oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, show_type='dailymotion', url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
+    oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=title), title="***DELETE THE %s SHOW***" %title, summary="Click here to delete this Daily Motion Show"))
+    oc.add(InputDirectoryObject(key=Callback(AddImage, title=title, url=url), title="Add a Custom Image For %s" %title, summary="Add an alternative image url for this show", prompt="Enter the full URL (including http://) for an existing online image"))
 
   if len(oc) < 1:
     return ObjectContainer(header=L('Empty'), message=L('There are no videos to display for this feed right now'))
@@ -662,7 +652,6 @@ def SummaryFind(epDesc):
 #       if URLTest(url) == "true":
 @route(PREFIX + '/urltest')
 def URLTest(url):
-  url_good = ''
   if URLService.ServiceIdentifierForURL(url) is not None:
     url_good = 'true'
   else:
@@ -670,41 +659,37 @@ def URLTest(url):
   return url_good
 
 ############################################################################################################################
-# This function is for the ShowRSS function that list feed  items to show a directory for videos that do not have 
-# a URL service or a media stream URL value. This way a directory entry for each incompatible URLs is shown,
-# so any bad entries will still be listed with an explanation
+# This function is for the ShowRSS function to show a directory for videos that do not have a URL service or a media stream URL value. 
+# This way a directory entry for each incompatible URLs is shown, so any bad entries will still be listed with an explanation
 @route(PREFIX + '/urlnoservice')
 def URLNoService(title):
-  return ObjectContainer(header="Error", message='There is no Plex URL service or media file link for the %s show entry. A Plex URL service or a link to media files in the show entry is required for this channel to create playable media. If all entries for this show give this error, you can use the Delete button shown at the end of the show entry listings to remove this show' %title)
+  return ObjectContainer(header="Error", message='There is no Plex URL service or media file link for the %s feed entry. A Plex URL service or a link to media files in the feed entry is required for this channel to create playable media. If all entries for this feed give this error, you can use the Delete button shown at the end of the feed entry listings to remove this feed' %title)
 
 ############################################################################################################################
-# This function is used to create a directory entry in the RSS/Other Section function when a show URL from 
-# the Dict['MyShows'] fails an XML/HTML.ElementFromURL pull to show users the error instead of skipping them.
-# And in this function we can give options to fix that show URL 
+# This function creates an error message for RSS Feed entries that have an unsupported media type and keeps a section of feeds
+# from giving an error for the entire list of entries
+@route(PREFIX + '/urlunsupported')
+def URLUnsupported(url, title):
+  oc = ObjectContainer()
+  
+  return ObjectContainer(header="Error", message='The media for the %s feed entry is of a type that is not supported. If you get this error with all entries for this feed, you can use the Delete option shown at the end of the feed entry listings to remove this feed from the channel' %title)
+
+  return oc
+
+############################################################################################################################
+# This function creates a directory entry when a show URL from the Dict['MyShows'] fails an XML/HTML.ElementFromURL pull
+# to show users the error instead of skipping them. And in this function we can give options to fix that show URL 
 @route(PREFIX + '/urlerror')
 def URLError(url, show_type):
 
   oc = ObjectContainer()
-  oc.add(DirectoryObject(key=Callback(EditShow, title="Edit Show", url=url, show_type=show_type), title="Edit Show"))
-  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Show", url=url, show_type=show_type), title="Delete Show", summary="Delete this URL from your list of shows"))
-  return oc
-
-#############################################################################################################################
-# This function allows you to re-enter the URL or image for a show
-# WE COULD SHOW THE URL ENTERED FIRST OR GIVE MESSAGE FOR PROPER FORMAT FOR SHOW TYPE
-@route(PREFIX + '/editshow')
-def EditShow(title, url, show_type):
-  oc = ObjectContainer()
-  
-  oc.add(InputDirectoryObject(key=Callback(AddShow, show_type=show_type), title="Reenter URL", summary="Click here re-enter the URL for this show", thumb=R(ICON), prompt="Enter the full URL (including http://) for the show"))
-  oc.add(InputDirectoryObject(key=Callback(AddImage, show_type=show_type, url=url), title="Update Image", summary="Click here to update the image url for this show", prompt="Enter the full URL (including http://) for the new image you would like displayed for this show"))
-
+  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Show", url=url), title="Delete Show", summary="Delete this URL from your list of shows. You can try again by choosing the Add Show option"))
   return oc
 
 ############################################################################################################################
 # This is a function to delete a show from the Dict['MyShows']
 @route(PREFIX + '/deleteshow')
-def DeleteShow(url, show_type, title):
+def DeleteShow(url, title):
 
   shows = Dict["MyShows"]
   for show in shows:
@@ -719,11 +704,11 @@ def DeleteShow(url, show_type, title):
 @route(PREFIX + '/addshow')
 def AddShow(show_type, query, url=''):
 
-  #Log('the value of query is %s' %query)
+  Log('the value of query is %s' %query)
   url = query
   # Fix or clean up url
   if url.startswith('www') or url.startswith('http://') or url.startswith('https://'):
-    url = URLCleanup(url)
+    url = URLCleanUp(url, show_type)
   else:
     url = URLFix(url, show_type)
     
@@ -798,7 +783,7 @@ def URLFix(url, show_type):
 #############################################################################################################################
 # This is a function to add an url for an image the Dict['MyShows'].  
 @route(PREFIX + '/addimage')
-def AddImage(show_type, query, url='', title=''):
+def AddImage(query, url, title=''):
 
   thumb = query
   # Checking to make sure http on the front
