@@ -414,6 +414,8 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
 def YouTubeSections(title, url, thumb=''):
   
   oc = ObjectContainer(title2=title)
+  if not thumb:
+    thumb = HTML.ElementFromURL(url).xpath('//meta[@property="og:image"]/@content')[0]
 
   oc.add(DirectoryObject(key=Callback(YouTubeVideos, title="%s Videos" %title, url=url+'/videos?flow=list'), title="%s Videos" %title, thumb=Resource.ContentsOfURLWithFallback(url=thumb)))
   oc.add(DirectoryObject(key=Callback(PlaylistYouTube, title="%s PlayLists" %title, url=url), title="%s PlayLists" %title, thumb=Resource.ContentsOfURLWithFallback(url=thumb)))
@@ -436,8 +438,8 @@ def PlaylistYouTube(title, url, json_url=''):
     pl_title = playlist.xpath('.//div[@class="yt-lockup-content"]/h3/a/@title')[0]
     pl_url = playlist.xpath('.//div[@class="yt-lockup-content"]/h3/a/@href')[0]
     pl_url = YouTube_URL + pl_url
-    pl_thumb = playlist.xpath('.//img/@src')[0]
-    pl_thumb = 'http:' + pl_thumb
+    try: pl_thumb = playlist.xpath('.//img/@src')[0]
+    except: pl_thumb = playlist.xpath('.//img/@data-thumb')[0]
     pl_desc = playlist.xpath('.//span[@class="formatted-video-count-label"]//text()')[0]
     oc.add(DirectoryObject(key=Callback(YouTubeVideos, title=pl_title, url=pl_url),
       title = pl_title,
@@ -476,8 +478,8 @@ def YouTubeVideos(title, url, json_url='', pl_only=False):
       video_url = YouTube_URL + video_url
     try: video_title = video.xpath('./@data-title')[0]
     except: video_title = video.xpath('.//a/@title')[0]
-    thumb = video.xpath('.//img/@data-thumb')[0]
-    thumb = 'http:' + thumb
+    try: thumb = video.xpath('.//img/@data-thumb')[0]
+    except: thumb = video.xpath('.//img/@src')[0]
     try: duration = Datetime.MillisecondsFromString(video.xpath('.//div[@class="timestamp"]/span//text()')[0])
     except:
       try: duration = Datetime.MillisecondsFromString(video.xpath('.//span[@class="video-time"]//text()')[0])
@@ -712,11 +714,14 @@ def AddShow(show_type, query, url=''):
   else:
     url = URLFix(url, show_type)
     
+  # create new item as json
+  shows = Dict["MyShows"]
   list_item = {}
   list_item[unicode('type')] = unicode(show_type)
   list_item[unicode('url')] = unicode(url)
   list_item[unicode('thumb')] = unicode('')
-  Dict["MyShows"].append(list_item)
+  shows.append(list_item)
+  Dict["MyShows"] = shows
 
   #Log(Dict['MyShows'])
   return ObjectContainer(header=L('Added'), message=L('Your show has been added to the channel'))
@@ -820,3 +825,4 @@ def AddData():
   json_shows = JSON.ObjectFromString(json_data)
   Dict["MyShows"] = shows + json_shows
   return ObjectContainer(header=L('Updated'), message=L('Your show data has been updated to inlude the json data in the Resources folder'))
+
