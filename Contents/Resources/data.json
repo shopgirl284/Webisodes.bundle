@@ -1,11 +1,13 @@
 [
 {type: "rss", url: "https://archive.org/services/collection-rss.php?collection=computersandtechvideos", thumb: ""},
-{type: "rss", url: "http://www.cwtv.com/feed/video/xml", thumb: ""},
-{type: "youtube", url: "http://www.youtube.com/user/NewarkTimesWeddings", thumb: ""},
-{type: "youtube", url: "http://www.youtube.com/playlist?list=PLl4T6p7km9dbx0o8J35KjWAwaiEo5tV7G", thumb: ""},
+{type: "rss", url: "http://feeds.feedburner.com/techsnaplarge?format=xml", thumb: ""},
+{type: "youtube", url: "http://www.youtube.com/user/MyGimpyLife", thumb: ""},
+{type: "youtube", url: "https://www.youtube.com/user/democracynow", thumb: ""},
 {type: "vimeo", url: "http://vimeo.com/fto7th", thumb: ""},
 {type: "vimeo", url: "http://vimeo.com/highmaintenance", thumb: ""},
-{type: "dailymotion", url: "http://www.dailymotion.com//CNET", thumb: ""}, 
-{type: "dailymotion", url: "http://www.dailymotion.com/playlist/x43ld4_viralcd_dogs-for-days", thumb: ""}, 
+{type: "dailymotion", url: "http://www.dailymotion.com/CNET", thumb: ""},
+{type: "dailymotion", url: "http://www.dailymotion.com/Clevver-News", thumb: ""},
+{type: "dailymotion", url: "http://www.dailymotion.com/playlist/x43ld4_viralcd_dogs-for-days", thumb: ""},
+{type: "live", name: "CometTV", url: "http://content.uplynk.com/channel/810bf2b47d9f4bd8a0101dd2b21afc91.m3u8?tc=1&exp=1614631202&rn=1044192764&ct=c&cid=810bf2b47d9f4bd8a0101dd2b21afc91&ad=comet&ad.adUnit=%2FCOMET%2FLivestream_midroll&ad._debug=comet_vmap&ad.ad_rule=1&ad.pmad=10&ad.output=xml_vmap1&sig=61df4f67b54a8b52d2060b9e30bcf4bbe41fe1a1c86bf468377f869a29569b7c", thumb: ""},
+{type: "live", name: "ABC News", url: "http://abclive.abcnews.com/i/abc_live4@136330/index_1200_av-b.m3u8", thumb: "http://upload.wikimedia.org/wikipedia/en/f/fa/ABCNewsLogo.png"}
 ]
-
