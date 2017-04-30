@@ -68,6 +68,7 @@ def OtherSections(title, show_type):
                 try: title = page.xpath('//head//meta[@property="og:title" or @name="title"]//@content')[0] 
                 except: 
                     try: title = page.xpath('//title/text()')[0] 
+                    except: title = 'No title found' 
             if not thumb:
                 try: thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
                 # this is for youtube playlists images  
