@@ -61,10 +61,13 @@ def OtherSections(title, show_type):
                 oc.add(DirectoryObject(key=Callback(tools.URLError, url=url, show_type=show_type), title="Invalid or Incompatible URL - %s" %url, summary="The URL entered for this show was either incorrect or not in the proper format for use with this channel."))
                 continue
 
-            description = page.xpath("//head//meta[@name='description']//@content")[0] 
+            try: description = page.xpath("//head//meta[@name='description']//@content")[0] 
+            except: description = '' 
             if not title:
                 # YouTube change the format of its playlist urls from @property="og:title" to @name="title", others use @name="title"
-                title = page.xpath('//head//meta[@property="og:title" or @name="title"]//@content')[0] 
+                try: title = page.xpath('//head//meta[@property="og:title" or @name="title"]//@content')[0] 
+                except: 
+                    try: title = page.xpath('//title/text()')[0] 
             if not thumb:
                 try: thumb = page.xpath("//head//meta[@property='og:image']//@content")[0]
                 # this is for youtube playlists images  
